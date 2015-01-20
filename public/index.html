@@ -1,0 +1,88 @@
+<!DOCTYPE HTML>
+<html lang="en">
+  <head>
+    <title>My Favorite Place on Mars</title>
+    <meta charset="utf-8"/>
+    {{ if .SignedIn }}<meta id="my-fingerprint" name="my-fingerprint" value="{{ .Fingerprint }}"/>
+    <meta id="csrf-token" name="csrf-token" value="{{ .CSRFToken }}"/>{{ end }}
+
+    <link rel="stylesheet" href="index.css"/>
+
+    <script src="three/three.js" defer></script>
+    <script src="globe.js" defer></script>
+    <script src="index.js" defer></script>
+  </head>
+
+  <body>
+    <div id="container">
+      <div id="explain">
+
+        <div id="intro" class="subpage" {{ if .IntroPage }}{{ else }}hidden{{ end }}>
+          <h1>My<br/>favorite</br>place on</br>Mars is:</h1>
+          <div id="signin-holder">
+            <a href="/signin" class="button sp-link" id="signin-button">Sign in with SSH</a>
+            <div>to add a pin</div>
+          </div>
+        </div>
+
+        <div id="signin" class="subpage" {{ if .SigninPage }}{{ else }}hidden{{ end }}>
+          <a href="/" class="back sp-link"><img src="back.svg"/><span>Back</span></a>
+          <p>This demo shows how it's possible to sign into websites using SSH.</p>
+          <h2>Already have an SSH key?</h2>
+          <p><code>ssh -q {{ .Domain }}</code></p>
+          <h2>New to SSH?</h2>
+          <p><a href="how" class="sp-link">Here's how to do it</a></p>
+          <div class="footnotes">
+            <p><a href="throwaway" class="sp-link">Use a throwaway key</a></p>
+            <p><a href="fingerprint" class="sp-link">Server fingerprint</a></p>
+            <p><a href="https://github.com/duncankl/ssh-into-mars">Source code</a></p>
+          </div>
+        </div>
+
+        <div id="throwaway" class="subpage" {{ if .ThrowawayPage }}{{ else }}hidden{{ end }}>
+          <a href="/signin" class="back sp-link"><img src="back.svg"/><span>Back</span></a>
+          <h2>Throwaway keys</h2>
+          <p>After signing in, your SSH fingerprint is publicly displayed.</p>
+          <p>If you'd rather not reveal your regular fingerprint, make a throwaway instead:</p>
+          <p><code>ssh-keygen -f throwaway</code></p>
+          <p>Then sign in like this:</p>
+          <p><code>ssh -qi throwaway {{ .Domain }}</code></p>
+          <p>Using ssh-agent? Disable your regular key before signing in:</p>
+          <p><code>ssh-add -d</code></p>
+        </div>
+
+        <div id="fingerprint" class="subpage" {{ if .FingerprintPage }}{{ else }}hidden{{ end }}>
+          <a href="/signin" class="back sp-link"><img src="back.svg"/><span>Back</span></a>
+          <h2>Server fingerprint</h2>
+          <p>
+            <code class="fingerprint">{{ .HostFingerprint1 }}</code>
+            <code class="fingerprint">{{ .HostFingerprint2 }}</code>
+          </p>
+          <p>SSH will ask you to confirm this fingerprint the first time you connect. Good job for checking!</p>
+        </div>
+
+        <div id="pinplace" class="subpage" {{ if .SignedIn }}{{ else }}hidden{{ end }}>
+          <svg id="pinwell" width="125" height="185" class="empty">
+            <path class="well" d="m 58.374808,11.33852 c -27.980678,0 -51.27024,24.22609 -51.27024,50.51252 0,11.82569 6.65781,26.8526 11.46812,37.23095 L 58.1875,175.1615 97.615012,99.08199 c 4.810318,-10.37836 11.655418,-24.65178 11.655418,-37.23095 0,-26.28643 -22.914948,-50.51252 -50.895622,-50.51252 z m 0,30.45821 c 10.999853,0.0724 19.918083,9.03317 19.918083,20.05006 0,11.01688 -8.91823,19.84997 -19.918083,19.91808 -10.99986,-0.0724 -19.918086,-8.89695 -19.918086,-19.91808 0,-11.01689 8.918226,-19.97769 19.918086,-20.05006 z" />
+            <path class="outline" d="m 58.374808,11.33852 c -27.980678,0 -51.27024,24.22609 -51.27024,50.51252 0,11.82569 6.65781,26.8526 11.46812,37.23095 L 58.1875,175.1615 97.615012,99.08199 c 4.810318,-10.37836 11.655418,-24.65178 11.655418,-37.23095 0,-26.28643 -22.914948,-50.51252 -50.895622,-50.51252 z m 0,30.45821 c 10.999853,0.0724 19.918083,9.03317 19.918083,20.05006 0,11.01688 -8.91823,19.84997 -19.918083,19.91808 -10.99986,-0.0724 -19.918086,-8.89695 -19.918086,-19.91808 0,-11.01689 8.918226,-19.97769 19.918086,-20.05006 z" />
+          </svg>
+          <div class="footnotes">
+            <p><a id="signout-link">Sign out</a></p>
+            <p><a id="delete-link">Delete account</a></p>
+          </div>
+        </div>
+      </div>
+      <div id="gl" style="display: none"></div>
+      <div id="spinner-container">
+        <svg id="spinner" width="22" height="22">
+          <path d="M 16.625,8.8125 A 8.6875,8.6875 0 0 1 3.59375,16.336096" transform="matrix(1.0381679,0,0,1.0381577,2.7786259,1.8322)" />
+        </svg>
+      </div>
+      <div id="pindrag" hidden>
+        <svg width="125" height="185">
+          <path class="outline" d="m 58.374808,11.33852 c -27.980678,0 -51.27024,24.22609 -51.27024,50.51252 0,11.82569 6.65781,26.8526 11.46812,37.23095 L 58.1875,175.1615 97.615012,99.08199 c 4.810318,-10.37836 11.655418,-24.65178 11.655418,-37.23095 0,-26.28643 -22.914948,-50.51252 -50.895622,-50.51252 z m 0,30.45821 c 10.999853,0.0724 19.918083,9.03317 19.918083,20.05006 0,11.01688 -8.91823,19.84997 -19.918083,19.91808 -10.99986,-0.0724 -19.918086,-8.89695 -19.918086,-19.91808 0,-11.01689 8.918226,-19.97769 19.918086,-20.05006 z" />
+        </svg>
+      </div>
+    </div>
+  </body>
+</html>
