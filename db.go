@@ -50,14 +50,16 @@ func loadSchema(db *sql.DB) error {
 
 	create table signin_requests (
 		created_at integer not null,
-		signin_token text not null,
+		signin_id text not null,
+		signin_secret text not null,
 		pubkey blob not null
 	);
 
 	create table sessions (
 		user_id text not null,
 		last_active integer not null,
-		session_token text not null,
+		session_id text not null,
+		session_secret text not null,
 		csrf_token text not null
 	);
 

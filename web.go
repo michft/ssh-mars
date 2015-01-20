@@ -2,6 +2,7 @@ package main
 
 import (
 	"database/sql"
+	"fmt"
 	"github.com/gorilla/mux"
 	"golang.org/x/crypto/ssh"
 	"net/http"
@@ -30,5 +31,10 @@ func startHTTPServer(bind string, domain string, hostPubkey ssh.PublicKey, db *s
 
 	http.Handle("/", r)
 
-	go http.ListenAndServe(bind, nil)
+	go func() {
+		err := http.ListenAndServe(bind, nil)
+		if err != nil {
+			fmt.Println(err)
+		}
+	}()
 }

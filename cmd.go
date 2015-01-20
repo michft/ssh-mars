@@ -21,6 +21,14 @@ type Options struct {
 	Domain   string `long:"domain" description:"Domain where this server is publicly accessible." default:"localhost"`
 }
 
+const (
+	signinIdLength      = 4
+	signinSecretLength  = 16
+	sessionIdLength     = 8
+	sessionSecretLength = 40
+	csrfTokenLength     = 40
+)
+
 func main() {
 	options := Options{}
 	parser := flags.NewParser(&options, flags.Default)
@@ -57,6 +65,8 @@ func main() {
 
 	sessionSweeper(db)
 
+	fmt.Println("Server started.")
+
 	sig := make(chan os.Signal, 1)
 	signal.Notify(sig, os.Interrupt)
 	<-sig
@@ -67,18 +77,23 @@ func storeSigninRequest(db *sql.DB, pubkey []byte, domain string) (string, error
 		return "", fmt.Errorf("public key is too large (%v bytes)", len(pubkey))
 	}
 
-	token, err := randomToken(20)
+	id, err := randomToken(signinIdLength)
+	if err != nil {
+		return "", err
+	}
+
+	secret, err := randomToken(signinSecretLength)
 	if err != nil {
 		return "", err
 	}
 
 	timestamp := time.Now().Unix()
-	_, err = db.Exec("insert into signin_requests (created_at, signin_token, pubkey) values (?, ?, ?)", timestamp, token, pubkey)
+	_, err = db.Exec("insert into signin_requests (created_at, signin_id, signin_secret, pubkey) values (?, ?, ?, ?)", timestamp, id, secret, pubkey)
 	if err != nil {
 		return "", err
 	}
 
-	return fmt.Sprintf("http://%s/signin/%s", domain, token), nil
+	return fmt.Sprintf("http://%s/signin/%s%s", domain, id, secret), nil
 }
 
 func sessionSweeper(db *sql.DB) {

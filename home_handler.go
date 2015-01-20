@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/subtle"
 	"database/sql"
 	"fmt"
 	"golang.org/x/crypto/ssh"
@@ -39,7 +40,7 @@ func (hd *HomeHandler) ServeHTTP(resp http.ResponseWriter, request *http.Request
 		return
 	}
 
-	userId, sessionToken, csrfToken, signedIn, err := userIdFromSession(request, db)
+	userId, sessionId, sessionSecret, csrfToken, signedIn, err := userIdFromSession(request, db)
 	if err != nil {
 		fmt.Println("reading session cookie:", err)
 		clearSessionCookie(resp)
@@ -57,7 +58,7 @@ func (hd *HomeHandler) ServeHTTP(resp http.ResponseWriter, request *http.Request
 		}
 		fingerprint = pubkeyFingerprintMD5(pubkey)
 
-		keepSessionAlive(resp, db, sessionToken)
+		keepSessionAlive(resp, db, sessionId, sessionSecret)
 	}
 
 	hostFingerprint := pubkeyFingerprintMD5(hd.hostPubkey.Marshal())
@@ -85,28 +86,39 @@ func (hd *HomeHandler) ServeHTTP(resp http.ResponseWriter, request *http.Request
 	t.Execute(resp, context)
 }
 
-func userIdFromSession(request *http.Request, db *sql.DB) (int, string, string, bool, error) {
+func userIdFromSession(request *http.Request, db *sql.DB) (int, string, string, string, bool, error) {
 	cookie, err := request.Cookie("session")
 	if err == http.ErrNoCookie {
-		return 0, "", "", false, nil
+		return 0, "", "", "", false, nil
 	} else if err != nil {
-		return 0, "", "", false, err
+		return 0, "", "", "", false, err
 	}
 
 	sessionToken := cookie.Value
 
-	var userId int
-	var csrfToken string
-	err = db.QueryRow("select user_id, csrf_token from sessions where session_token = ?", sessionToken).Scan(&userId, &csrfToken)
-	if err != nil {
-		return 0, "", "", false, err
+	if len(sessionToken) != sessionIdLength+sessionSecretLength {
+		return 0, "", "", "", false, fmt.Errorf("invalid session token")
 	}
 
-	return userId, sessionToken, csrfToken, true, nil
+	sessionId := sessionToken[:sessionIdLength]
+	providedSessionSecret := sessionToken[sessionIdLength:]
+
+	var userId int
+	var sessionSecret, csrfToken string
+	err = db.QueryRow("select user_id, session_secret, csrf_token from sessions where session_id = ?", sessionId).Scan(&userId, &sessionSecret, &csrfToken)
+	if err != nil {
+		return 0, "", "", "", false, err
+	}
+
+	if subtle.ConstantTimeCompare([]byte(providedSessionSecret), []byte(sessionSecret)) != 1 {
+		return 0, "", "", "", false, fmt.Errorf("invalid session token")
+	}
+
+	return userId, sessionId, sessionSecret, csrfToken, true, nil
 }
 
-func keepSessionAlive(resp http.ResponseWriter, db *sql.DB, sessionToken string) {
+func keepSessionAlive(resp http.ResponseWriter, db *sql.DB, id, secret string) {
 	timestamp := time.Now().Unix()
-	db.Exec("update sessions set last_active = ? where session_token = ?", timestamp, sessionToken)
-	setSessionCookie(resp, sessionToken)
+	db.Exec("update sessions set last_active = ? where session_id = ?", timestamp, id)
+	setSessionCookie(resp, id, secret)
 }

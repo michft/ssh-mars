@@ -12,7 +12,7 @@ type UpdatePinHandler HandlerWithDBConnection
 func (hd *UpdatePinHandler) ServeHTTP(resp http.ResponseWriter, request *http.Request) {
 	db := hd.db
 
-	userId, sessionToken, csrfToken, signedIn, err := userIdFromSession(request, db)
+	userId, sessionId, sessionSecret, csrfToken, signedIn, err := userIdFromSession(request, db)
 	if err != nil {
 		fmt.Println("reading session cookie:", err)
 		clearSessionCookie(resp)
@@ -30,7 +30,7 @@ func (hd *UpdatePinHandler) ServeHTTP(resp http.ResponseWriter, request *http.Re
 		return
 	}
 
-	keepSessionAlive(resp, db, sessionToken)
+	keepSessionAlive(resp, db, sessionId, sessionSecret)
 
 	latStr := request.PostFormValue("lat")
 	lonStr := request.PostFormValue("lon")

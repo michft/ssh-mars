@@ -10,7 +10,7 @@ type DeleteAccountHandler HandlerWithDBConnection
 func (hd *DeleteAccountHandler) ServeHTTP(resp http.ResponseWriter, request *http.Request) {
 	db := hd.db
 
-	userId, _, csrfToken, signedIn, err := userIdFromSession(request, db)
+	userId, _, _, csrfToken, signedIn, err := userIdFromSession(request, db)
 	if err != nil {
 		fmt.Println("reading session cookie:", err)
 		clearSessionCookie(resp)
