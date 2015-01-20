@@ -26,6 +26,9 @@ html {
   display: flex;
   align-items: center;
   justify-content: center;
+  display: -webkit-flex;
+  -webkit-align-items: center;
+  -webkit-justify-content: center;
 }
 
 body {
@@ -43,8 +46,12 @@ body {
   padding: 40px;
   display: flex;
   flex-direction: row;
-  justify-content: space-between;
   align-items: center;
+  justify-content: space-between;
+  display: -webkit-flex;
+  -webkit-flex-direction: row;
+  -webkit-align-items: center;
+  -webkit-justify-content: space-between;
 }
 
 #gl, #spinner-container {
@@ -55,6 +62,9 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
+  display: -webkit-flex;
+  -webkit-align-items: center;
+  -webkit-justify-content: center;
 }
 
 #spinner {

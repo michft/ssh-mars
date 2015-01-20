@@ -263,9 +263,10 @@ Pin =
     s = easing(s) if easing?
     s * (range[1]-range[0]) + range[0]
 
+spinner = Util.id('spinner-container')
+spinner.style.display = null
 Nav.init()
 Globe.loadEverything (textures, xhr) ->
-  spinner = Util.id('spinner-container')
   spinner.parentNode.removeChild(spinner)
   globe = Globe.init(Util.id('gl'), textures, xhr)
   globe.container.style.display = null
