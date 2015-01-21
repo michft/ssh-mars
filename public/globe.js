@@ -160,7 +160,7 @@
         ambient: 0xffffff,
         specular: 0x9c521d,
         shininess: 1,
-        bumpScale: 4,
+        bumpScale: 5,
         shading: THREE.SmoothShading
       });
       geometry = new THREE.SphereGeometry(200, 40, 30);
