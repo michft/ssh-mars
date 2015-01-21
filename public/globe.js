@@ -57,7 +57,7 @@
         container: container
       };
       globe.container.appendChild(globe.gl.renderer.domElement);
-      Globe.addEvents(globe.container, globe.interaction);
+      Globe.addEvents(globe, globe.interaction, globe.gl, globe.container);
       Globe.animate(function() {
         return Globe.render(globe.gl, globe.interaction);
       });
@@ -65,52 +65,70 @@
       return globe;
     },
     eventModes: {
-      rest: [['container', 'mousedown', 'dragStart']],
-      dragging: [['document', 'mousemove', 'dragMove'], ['document', 'mouseup', 'dragStop'], ['document', 'mouseexit', 'dragStop']]
+      rest: [['container', 'mousemove', 'mouseMove'], ['container', 'mousedown', 'dragStart']],
+      dragging: [['document', 'mousemove', 'dragMove'], ['document', 'mouseup', 'dragStop'], ['document', 'mouseexit', 'dragStop']],
+      hoveringWithPin: []
     },
-    addEvents: function(container, interaction) {
-      var events, mode;
-      mode = null;
-      events = {
+    addEvents: function(globe) {
+      globe.interaction.events = {
+        mouseMove: function(e) {
+          var pin;
+          pin = Globe.raycastPin(globe.gl, Globe.containerOffset(globe.container, e));
+          if (pin != null) {
+            if (pin.fingerprint === Globe.myFingerprint()) {
+              return Globe.setCaption('My fingerprint: ' + pin.fingerprint);
+            } else {
+              return Globe.setCaption('Pin placed by: ' + pin.fingerprint);
+            }
+          } else {
+            return Globe.setCaption();
+          }
+        },
         dragStart: function(e) {
-          container.style.cursor = 'grabbing';
-          interaction.mouse = Globe.containerOffset(container, e);
-          return mode = Globe.transitionMode(container, events, mode, 'dragging');
+          globe.container.style.cursor = 'grabbing';
+          globe.interaction.mouse = Globe.containerOffset(globe.container, e);
+          caption.textContent = null;
+          return Globe.transitionMode(globe, 'dragging');
         },
         dragMove: function(e) {
           var ds, prevMouse;
-          prevMouse = interaction.mouse;
-          interaction.mouse = Globe.containerOffset(container, e);
-          ds = interaction.mouse.clone().sub(prevMouse).multiply(Globe.vec2(-1, 1));
-          interaction.targetRotation.add(ds.multiplyScalar(0.004));
-          return interaction.targetRotation.setY(Globe.clamp([-Math.PI / 2, Math.PI / 2], interaction.targetRotation.y));
+          prevMouse = globe.interaction.mouse;
+          globe.interaction.mouse = Globe.containerOffset(globe.container, e);
+          ds = globe.interaction.mouse.clone().sub(prevMouse).multiply(Globe.vec2(-1, 1));
+          globe.interaction.targetRotation.add(ds.multiplyScalar(0.004));
+          return globe.interaction.targetRotation.setY(Globe.clamp([-Math.PI / 2, Math.PI / 2], globe.interaction.targetRotation.y));
         },
         dragStop: function(e) {
-          container.style.cursor = null;
-          return mode = Globe.transitionMode(container, events, mode, 'rest');
+          globe.container.style.cursor = null;
+          return Globe.transitionMode(globe, 'rest');
         }
       };
-      return mode = Globe.transitionMode(container, events, mode, 'rest');
+      return Globe.transitionMode(globe, 'rest');
     },
-    transitionMode: function(container, events, prevMode, mode) {
+    transitionMode: function(globe, mode) {
       var binding, targets, _i, _j, _len, _len1, _ref, _ref1;
       targets = {
-        container: container,
+        container: globe.container,
         document: document
       };
-      if (prevMode != null) {
-        _ref = Globe.eventModes[prevMode];
+      if (globe.interaction.mode != null) {
+        _ref = Globe.eventModes[globe.interaction.mode];
         for (_i = 0, _len = _ref.length; _i < _len; _i++) {
           binding = _ref[_i];
-          targets[binding[0]].removeEventListener(binding[1], events[binding[2]]);
+          targets[binding[0]].removeEventListener(binding[1], globe.interaction.events[binding[2]]);
         }
       }
       _ref1 = Globe.eventModes[mode];
       for (_j = 0, _len1 = _ref1.length; _j < _len1; _j++) {
         binding = _ref1[_j];
-        targets[binding[0]].addEventListener(binding[1], events[binding[2]]);
+        targets[binding[0]].addEventListener(binding[1], globe.interaction.events[binding[2]]);
       }
-      return mode;
+      return globe.interaction.mode = mode;
+    },
+    setCaption: function(text) {
+      var caption;
+      caption = document.getElementById('caption');
+      return caption.textContent = text;
     },
     setupScene: function(w, h, textures) {
       var geometry, gl, material;
@@ -172,10 +190,11 @@
     positionPin: function(gl, pin, pos) {
       var verts;
       verts = pin.line.geometry.vertices;
-      verts[0].copy(pos.normalize().multiplyScalar(200));
-      verts[1].copy(verts[0].clone().multiplyScalar(1.04));
+      verts[0].copy(Globe.vec3(0, 0, 0));
+      verts[1].copy(pos.normalize().multiplyScalar(8));
       pin.line.geometry.verticesNeedUpdate = true;
-      return pin.sprite.position.copy(verts[1].clone().multiplyScalar(1.005));
+      pin.sprite.position.copy(pos.normalize().multiplyScalar(9));
+      return pin.position.copy(pos.normalize().multiplyScalar(200));
     },
     animate: function(render) {
       requestAnimationFrame(function() {
@@ -193,14 +212,39 @@
       gl.camera.lookAt(Globe.vec3(0, 0, 0));
       return gl.renderer.render(gl.scene, gl.camera);
     },
+    glMouse: function(mouse) {
+      return mouse.clone().multiplyScalar(2 / 800).addScalar(-1).multiply(Globe.vec2(1, -1));
+    },
+    rayDirection: function(gl, mouse) {
+      var glmouse;
+      glmouse = Globe.glMouse(mouse);
+      return Globe.vec3(glmouse.x, glmouse.y, 0).unproject(gl.camera).sub(gl.camera.position).normalize();
+    },
     raycast: function(gl, mouse) {
       var direction, hits, raycaster;
-      direction = Globe.vec3(mouse.x, mouse.y, 0).unproject(gl.camera).sub(gl.camera.position).normalize();
+      direction = Globe.rayDirection(gl, mouse);
       raycaster = new THREE.Raycaster();
       raycaster.set(gl.camera.position, direction);
       hits = raycaster.intersectObject(gl.mesh, false);
       if (hits.length > 0) {
         return hits[0].point;
+      } else {
+        return null;
+      }
+    },
+    raycastPin: function(gl, mouse) {
+      var direction, hits, objs, raycaster;
+      direction = Globe.rayDirection(gl, mouse);
+      raycaster = new THREE.Raycaster();
+      raycaster.set(gl.camera.position, direction);
+      raycaster.linePrecision = 10;
+      objs = gl.pins.children.map(function(pin) {
+        return pin.line;
+      });
+      objs.push(gl.mesh);
+      hits = raycaster.intersectObjects(objs, false);
+      if (hits.length > 0 && hits[0].object.type === 'Line') {
+        return hits[0].object.parent;
       } else {
         return null;
       }

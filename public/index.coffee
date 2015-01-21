@@ -85,8 +85,9 @@ Pin =
       well: Util.id('pinwell')
       drag: Util.id('pindrag')
       globe: globe
+      offset: new THREE.Vector2(0, 0)
 
-    Pin.addEvents(pin.well, pin.drag, pin.globe)
+    Pin.addEvents(pin)
 
     pin
 
@@ -106,102 +107,106 @@ Pin =
       ['document', 'mousemove', 'globeMove']
       ['document', 'mouseup', 'globeUp']]
 
-  addEvents: (well, drag, globe) ->
-    mode = null
-    offset = {x: 0, y: 0}
-
-    events =
-      wellEnter: () -> well.classList.add('hover')
-      wellLeave: () -> well.classList.remove('hover')
+  addEvents: (pin) ->
+    pin.events =
+      wellEnter: () -> pin.well.classList.add('hover')
+      wellLeave: () -> pin.well.classList.remove('hover')
 
       wellDown: (e) ->
-        well.style.cursor = 'grabbing'
-        offset = Pin.wellOffset(well, e)
-        mode = Pin.transitionMode(well, events, mode, 'wellPressed')
+        pin.well.style.cursor = 'grabbing'
+        pin.offset = Pin.wellOffset(pin.well, e)
+        Pin.transitionMode(pin, 'wellPressed')
 
       wellUp: () ->
-        well.style.cursor = null
-        mode = Pin.transitionMode(well, events, mode, 'rest')
+        pin.well.style.cursor = null
+        Pin.transitionMode(pin, 'rest')
 
       wellPull: (e) ->
-        dist = offset.distanceTo(Pin.wellOffset(well, e))
-        events.dragStart(e) if dist > 10
+        dist = pin.offset.distanceTo(Pin.wellOffset(pin.well, e))
+        pin.events.dragStart(e) if dist > 10
 
       dragStart: (e) ->
-        events.wellLeave()
-        events.wellUp()
-        well.classList.add('empty')
-        events.dragMove(e)
-        drag.hidden = false
-        drag.style.transformOrigin = offset.x + 'px ' + offset.y + 'px'
+        pin.events.wellLeave()
+        pin.events.wellUp()
+        pin.well.classList.add('empty')
+        pin.events.dragMove(e)
+        pin.drag.hidden = false
+        pin.drag.style.transformOrigin = pin.offset.x + 'px ' + pin.offset.y + 'px'
 
         fingerprint = Util.myFingerprint()
-        pins = globe.gl.pins
-        pin = pins.fingerprints[fingerprint]
-        if pin?
-          pins.fingerprints[fingerprint] = null
-          pins.remove(pin)
+        gl = pin.globe.gl
+        glpin = gl.pins.fingerprints[fingerprint]
+        if glpin?
+          gl.pins.fingerprints[fingerprint] = null
+          gl.pins.remove(glpin)
 
-        mode = Pin.transitionMode(well, events, mode, 'dragVoid')
+        Pin.transitionMode(pin, 'dragVoid')
 
       dragMove: (e) ->
-        drag.style.left = (e.clientX - offset.x) + 'px'
-        drag.style.top  = (e.clientY - offset.y) + 'px'
+        pin.drag.style.left = (e.clientX - pin.offset.x) + 'px'
+        pin.drag.style.top  = (e.clientY - pin.offset.y) + 'px'
 
-        globeOffset = Pin.globeOffset(globe.container, e)
-        dist = globeOffset.length()
+        globeOffset = Pin.globeOffset(pin.globe.container, e)
+        dist = Globe.glMouse(globeOffset).length()
 
         easing = (x) -> x * x
         scale = Pin.interpolate([1.54, 0.87], [1, 0.1], easing, dist)
-        Pin.scalePin(drag, scale)
+        Pin.scalePin(pin.drag, scale)
 
-        pos = Globe.raycast(globe.gl, Pin.nudgeUpwards(globeOffset))
-        events.globeEnter(e) if pos?
+        pos = Globe.raycast(pin.globe.gl, Pin.nudgeUpwards(globeOffset))
+        pin.events.globeEnter(e) if pos?
 
       dragReset: () ->
-        well.classList.remove('empty')
-        drag.hidden = true
+        pin.well.classList.remove('empty')
+        pin.drag.hidden = true
 
         Util.postForm 'pin',
           csrf_token: Util.csrfToken()
 
-        mode = Pin.transitionMode(well, events, mode, 'rest')
+        Pin.transitionMode(pin, 'rest')
 
       globeEnter: (e) ->
-        drag.hidden = true
-        globe.interaction.dragPin = Globe.makePin(globe.gl, true)
-        globe.gl.scene.add(globe.interaction.dragPin)
-        events.globeMove(e)
-        mode = Pin.transitionMode(well, events, mode, 'dragGlobe')
+        pin.drag.hidden = true
+        pin.globe.interaction.dragPin = Globe.makePin(pin.globe.gl, true)
+        pin.globe.gl.scene.add(pin.globe.interaction.dragPin)
+        pin.events.globeMove(e)
+
+        Globe.setCaption()
+
+        Globe.transitionMode(pin.globe, 'hoveringWithPin')
+        Pin.transitionMode(pin, 'dragGlobe')
 
       globeMove: (e) ->
-        globeOffset = Pin.globeOffset(globe.container, e)
-        pos = Globe.raycast(globe.gl, Pin.nudgeUpwards(globeOffset))
-        Globe.positionPin(globe.gl, globe.interaction.dragPin, pos) if pos?
-        events.globeLeave(e) if !pos?
+        globeOffset = Pin.globeOffset(pin.globe.container, e)
+        pos = Globe.raycast(pin.globe.gl, Pin.nudgeUpwards(globeOffset))
+        Globe.positionPin(pin.globe.gl, pin.globe.interaction.dragPin, pos) if pos?
+        pin.events.globeLeave(e) if !pos?
 
       globeLeave: (e) ->
-        globe.gl.scene.remove(globe.interaction.dragPin)
-        globe.interaction.dragPin = null
+        pin.globe.gl.scene.remove(pin.globe.interaction.dragPin)
+        pin.globe.interaction.dragPin = null
 
-        events.dragMove(e)
-        drag.hidden = false
-        mode = Pin.transitionMode(well, events, mode, 'dragVoid')
+        pin.events.dragMove(e)
+        pin.drag.hidden = false
+
+        Globe.transitionMode(pin.globe, 'rest')
+        Pin.transitionMode(pin, 'dragVoid')
 
       globeUp: (e) ->
-        globe.gl.scene.remove(globe.interaction.dragPin)
-        globe.interaction.dragPin = null
-        drag.hidden = true
+        gl = pin.globe.gl
+        gl.scene.remove(pin.globe.interaction.dragPin)
+        pin.globe.interaction.dragPin = null
+        pin.drag.hidden = true
 
-        globeOffset = Pin.globeOffset(globe.container, e)
-        pos = Globe.raycast(globe.gl, Pin.nudgeUpwards(globeOffset))
+        globeOffset = Pin.globeOffset(pin.globe.container, e)
+        pos = Globe.raycast(gl, Pin.nudgeUpwards(globeOffset))
 
         if pos?
-          pin = Globe.makePin(globe.gl, true)
-          pin.fingerprint = Util.myFingerprint()
-          Globe.positionPin(globe.gl, pin, pos)
-          globe.gl.pins.fingerprints[pin.fingerprint] = pin
-          globe.gl.pins.add(pin)
+          glpin = Globe.makePin(gl, true)
+          glpin.fingerprint = Util.myFingerprint()
+          Globe.positionPin(gl, glpin, pos)
+          gl.pins.fingerprints[glpin.fingerprint] = glpin
+          gl.pins.add(glpin)
           latLon = Globe.vectorToLatLon(pos)
 
           Util.postForm 'pin',
@@ -209,22 +214,23 @@ Pin =
             lat: latLon.lat
             lon: latLon.lon
 
-        mode = Pin.transitionMode(well, events, mode, 'rest')
+        Globe.transitionMode(pin.globe, 'rest')
+        Pin.transitionMode(pin, 'rest')
 
-    mode = Pin.transitionMode(well, events, mode, 'rest')
+    Pin.transitionMode(pin, 'rest')
 
 
-  transitionMode: (well, events, prevMode, mode) ->
-    targets = {well: well, document: document}
+  transitionMode: (pin, mode) ->
+    targets = {well: pin.well, document: document}
 
-    if prevMode?
-      for binding in Pin.eventModes[prevMode]
-        targets[binding[0]].removeEventListener(binding[1], events[binding[2]])
+    if pin.mode?
+      for binding in Pin.eventModes[pin.mode]
+        targets[binding[0]].removeEventListener(binding[1], pin.events[binding[2]])
 
     for binding in Pin.eventModes[mode]
-      targets[binding[0]].addEventListener(binding[1], events[binding[2]])
+      targets[binding[0]].addEventListener(binding[1], pin.events[binding[2]])
 
-    mode
+    pin.mode = mode
 
   scalePin: (pin, scale) ->
     pin.style.transform = 'scale(' + scale + ',' + scale + ')'
@@ -241,12 +247,9 @@ Pin =
 
   globeOffset: (globeContainer, e) ->
     Pin.mouse(e).sub(Pin.elementPosition(globeContainer))
-      .multiplyScalar(2/800)
-      .addScalar(-1)
-      .multiply(new THREE.Vector2(1, -1))
 
   nudgeUpwards: (pos) ->
-    pos.clone().add(new THREE.Vector2(0, 0.02))
+    pos.clone().add(new THREE.Vector2(0, -8))
 
   clamp: (limits, x) ->
     limits = [limits[1], limits[0]] if limits[1] < limits[0]

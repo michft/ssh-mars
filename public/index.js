@@ -108,9 +108,10 @@
       pin = {
         well: Util.id('pinwell'),
         drag: Util.id('pindrag'),
-        globe: globe
+        globe: globe,
+        offset: new THREE.Vector2(0, 0)
       };
-      Pin.addEvents(pin.well, pin.drag, pin.globe);
+      Pin.addEvents(pin);
       return pin;
     },
     eventModes: {
@@ -119,115 +120,113 @@
       dragVoid: [['document', 'mousemove', 'dragMove'], ['document', 'mouseup', 'dragReset']],
       dragGlobe: [['document', 'mousemove', 'globeMove'], ['document', 'mouseup', 'globeUp']]
     },
-    addEvents: function(well, drag, globe) {
-      var events, mode, offset;
-      mode = null;
-      offset = {
-        x: 0,
-        y: 0
-      };
-      events = {
+    addEvents: function(pin) {
+      pin.events = {
         wellEnter: function() {
-          return well.classList.add('hover');
+          return pin.well.classList.add('hover');
         },
         wellLeave: function() {
-          return well.classList.remove('hover');
+          return pin.well.classList.remove('hover');
         },
         wellDown: function(e) {
-          well.style.cursor = 'grabbing';
-          offset = Pin.wellOffset(well, e);
-          return mode = Pin.transitionMode(well, events, mode, 'wellPressed');
+          pin.well.style.cursor = 'grabbing';
+          pin.offset = Pin.wellOffset(pin.well, e);
+          return Pin.transitionMode(pin, 'wellPressed');
         },
         wellUp: function() {
-          well.style.cursor = null;
-          return mode = Pin.transitionMode(well, events, mode, 'rest');
+          pin.well.style.cursor = null;
+          return Pin.transitionMode(pin, 'rest');
         },
         wellPull: function(e) {
           var dist;
-          dist = offset.distanceTo(Pin.wellOffset(well, e));
+          dist = pin.offset.distanceTo(Pin.wellOffset(pin.well, e));
           if (dist > 10) {
-            return events.dragStart(e);
+            return pin.events.dragStart(e);
           }
         },
         dragStart: function(e) {
-          var fingerprint, pin, pins;
-          events.wellLeave();
-          events.wellUp();
-          well.classList.add('empty');
-          events.dragMove(e);
-          drag.hidden = false;
-          drag.style.transformOrigin = offset.x + 'px ' + offset.y + 'px';
+          var fingerprint, gl, glpin;
+          pin.events.wellLeave();
+          pin.events.wellUp();
+          pin.well.classList.add('empty');
+          pin.events.dragMove(e);
+          pin.drag.hidden = false;
+          pin.drag.style.transformOrigin = pin.offset.x + 'px ' + pin.offset.y + 'px';
           fingerprint = Util.myFingerprint();
-          pins = globe.gl.pins;
-          pin = pins.fingerprints[fingerprint];
-          if (pin != null) {
-            pins.fingerprints[fingerprint] = null;
-            pins.remove(pin);
+          gl = pin.globe.gl;
+          glpin = gl.pins.fingerprints[fingerprint];
+          if (glpin != null) {
+            gl.pins.fingerprints[fingerprint] = null;
+            gl.pins.remove(glpin);
           }
-          return mode = Pin.transitionMode(well, events, mode, 'dragVoid');
+          return Pin.transitionMode(pin, 'dragVoid');
         },
         dragMove: function(e) {
           var dist, easing, globeOffset, pos, scale;
-          drag.style.left = (e.clientX - offset.x) + 'px';
-          drag.style.top = (e.clientY - offset.y) + 'px';
-          globeOffset = Pin.globeOffset(globe.container, e);
-          dist = globeOffset.length();
+          pin.drag.style.left = (e.clientX - pin.offset.x) + 'px';
+          pin.drag.style.top = (e.clientY - pin.offset.y) + 'px';
+          globeOffset = Pin.globeOffset(pin.globe.container, e);
+          dist = Globe.glMouse(globeOffset).length();
           easing = function(x) {
             return x * x;
           };
           scale = Pin.interpolate([1.54, 0.87], [1, 0.1], easing, dist);
-          Pin.scalePin(drag, scale);
-          pos = Globe.raycast(globe.gl, Pin.nudgeUpwards(globeOffset));
+          Pin.scalePin(pin.drag, scale);
+          pos = Globe.raycast(pin.globe.gl, Pin.nudgeUpwards(globeOffset));
           if (pos != null) {
-            return events.globeEnter(e);
+            return pin.events.globeEnter(e);
           }
         },
         dragReset: function() {
-          well.classList.remove('empty');
-          drag.hidden = true;
+          pin.well.classList.remove('empty');
+          pin.drag.hidden = true;
           Util.postForm('pin', {
             csrf_token: Util.csrfToken()
           });
-          return mode = Pin.transitionMode(well, events, mode, 'rest');
+          return Pin.transitionMode(pin, 'rest');
         },
         globeEnter: function(e) {
-          drag.hidden = true;
-          globe.interaction.dragPin = Globe.makePin(globe.gl, true);
-          globe.gl.scene.add(globe.interaction.dragPin);
-          events.globeMove(e);
-          return mode = Pin.transitionMode(well, events, mode, 'dragGlobe');
+          pin.drag.hidden = true;
+          pin.globe.interaction.dragPin = Globe.makePin(pin.globe.gl, true);
+          pin.globe.gl.scene.add(pin.globe.interaction.dragPin);
+          pin.events.globeMove(e);
+          Globe.setCaption();
+          Globe.transitionMode(pin.globe, 'hoveringWithPin');
+          return Pin.transitionMode(pin, 'dragGlobe');
         },
         globeMove: function(e) {
           var globeOffset, pos;
-          globeOffset = Pin.globeOffset(globe.container, e);
-          pos = Globe.raycast(globe.gl, Pin.nudgeUpwards(globeOffset));
+          globeOffset = Pin.globeOffset(pin.globe.container, e);
+          pos = Globe.raycast(pin.globe.gl, Pin.nudgeUpwards(globeOffset));
           if (pos != null) {
-            Globe.positionPin(globe.gl, globe.interaction.dragPin, pos);
+            Globe.positionPin(pin.globe.gl, pin.globe.interaction.dragPin, pos);
           }
           if (pos == null) {
-            return events.globeLeave(e);
+            return pin.events.globeLeave(e);
           }
         },
         globeLeave: function(e) {
-          globe.gl.scene.remove(globe.interaction.dragPin);
-          globe.interaction.dragPin = null;
-          events.dragMove(e);
-          drag.hidden = false;
-          return mode = Pin.transitionMode(well, events, mode, 'dragVoid');
+          pin.globe.gl.scene.remove(pin.globe.interaction.dragPin);
+          pin.globe.interaction.dragPin = null;
+          pin.events.dragMove(e);
+          pin.drag.hidden = false;
+          Globe.transitionMode(pin.globe, 'rest');
+          return Pin.transitionMode(pin, 'dragVoid');
         },
         globeUp: function(e) {
-          var globeOffset, latLon, pin, pos;
-          globe.gl.scene.remove(globe.interaction.dragPin);
-          globe.interaction.dragPin = null;
-          drag.hidden = true;
-          globeOffset = Pin.globeOffset(globe.container, e);
-          pos = Globe.raycast(globe.gl, Pin.nudgeUpwards(globeOffset));
+          var gl, globeOffset, glpin, latLon, pos;
+          gl = pin.globe.gl;
+          gl.scene.remove(pin.globe.interaction.dragPin);
+          pin.globe.interaction.dragPin = null;
+          pin.drag.hidden = true;
+          globeOffset = Pin.globeOffset(pin.globe.container, e);
+          pos = Globe.raycast(gl, Pin.nudgeUpwards(globeOffset));
           if (pos != null) {
-            pin = Globe.makePin(globe.gl, true);
-            pin.fingerprint = Util.myFingerprint();
-            Globe.positionPin(globe.gl, pin, pos);
-            globe.gl.pins.fingerprints[pin.fingerprint] = pin;
-            globe.gl.pins.add(pin);
+            glpin = Globe.makePin(gl, true);
+            glpin.fingerprint = Util.myFingerprint();
+            Globe.positionPin(gl, glpin, pos);
+            gl.pins.fingerprints[glpin.fingerprint] = glpin;
+            gl.pins.add(glpin);
             latLon = Globe.vectorToLatLon(pos);
             Util.postForm('pin', {
               csrf_token: Util.csrfToken(),
@@ -235,30 +234,31 @@
               lon: latLon.lon
             });
           }
-          return mode = Pin.transitionMode(well, events, mode, 'rest');
+          Globe.transitionMode(pin.globe, 'rest');
+          return Pin.transitionMode(pin, 'rest');
         }
       };
-      return mode = Pin.transitionMode(well, events, mode, 'rest');
+      return Pin.transitionMode(pin, 'rest');
     },
-    transitionMode: function(well, events, prevMode, mode) {
+    transitionMode: function(pin, mode) {
       var binding, targets, _i, _j, _len, _len1, _ref, _ref1;
       targets = {
-        well: well,
+        well: pin.well,
         document: document
       };
-      if (prevMode != null) {
-        _ref = Pin.eventModes[prevMode];
+      if (pin.mode != null) {
+        _ref = Pin.eventModes[pin.mode];
         for (_i = 0, _len = _ref.length; _i < _len; _i++) {
           binding = _ref[_i];
-          targets[binding[0]].removeEventListener(binding[1], events[binding[2]]);
+          targets[binding[0]].removeEventListener(binding[1], pin.events[binding[2]]);
         }
       }
       _ref1 = Pin.eventModes[mode];
       for (_j = 0, _len1 = _ref1.length; _j < _len1; _j++) {
         binding = _ref1[_j];
-        targets[binding[0]].addEventListener(binding[1], events[binding[2]]);
+        targets[binding[0]].addEventListener(binding[1], pin.events[binding[2]]);
       }
-      return mode;
+      return pin.mode = mode;
     },
     scalePin: function(pin, scale) {
       pin.style.transform = 'scale(' + scale + ',' + scale + ')';
@@ -274,10 +274,10 @@
       return Pin.mouse(e).sub(Pin.elementPosition(well.parentNode));
     },
     globeOffset: function(globeContainer, e) {
-      return Pin.mouse(e).sub(Pin.elementPosition(globeContainer)).multiplyScalar(2 / 800).addScalar(-1).multiply(new THREE.Vector2(1, -1));
+      return Pin.mouse(e).sub(Pin.elementPosition(globeContainer));
     },
     nudgeUpwards: function(pos) {
-      return pos.clone().add(new THREE.Vector2(0, 0.02));
+      return pos.clone().add(new THREE.Vector2(0, -8));
     },
     clamp: function(limits, x) {
       if (limits[1] < limits[0]) {

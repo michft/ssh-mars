@@ -44,7 +44,7 @@ Globe =
 
     globe.container.appendChild(globe.gl.renderer.domElement)
 
-    Globe.addEvents(globe.container, globe.interaction)
+    Globe.addEvents(globe, globe.interaction, globe.gl, globe.container)
     Globe.animate () -> Globe.render(globe.gl, globe.interaction)
     Globe.populatePins(globe.gl, xhr.pins)
 
@@ -52,44 +52,60 @@ Globe =
 
   eventModes:
     rest: [
+      ['container', 'mousemove', 'mouseMove']
       ['container', 'mousedown', 'dragStart']]
     dragging: [
       ['document', 'mousemove', 'dragMove']
       ['document', 'mouseup', 'dragStop']
       ['document', 'mouseexit', 'dragStop']]
+    hoveringWithPin: []
  
-  addEvents: (container, interaction) ->
-    mode = null
-    events =
+  addEvents: (globe) ->
+    globe.interaction.events =
+      mouseMove: (e) ->
+        pin = Globe.raycastPin(globe.gl, Globe.containerOffset(globe.container, e))
+        if pin?
+          if pin.fingerprint == Globe.myFingerprint()
+            Globe.setCaption('My fingerprint: ' + pin.fingerprint)
+          else
+            Globe.setCaption('Pin placed by: ' + pin.fingerprint)
+        else
+          Globe.setCaption()
+
       dragStart: (e) ->
-        container.style.cursor = 'grabbing'
-        interaction.mouse = Globe.containerOffset(container, e)
-        mode = Globe.transitionMode(container, events, mode, 'dragging')
+        globe.container.style.cursor = 'grabbing'
+        globe.interaction.mouse = Globe.containerOffset(globe.container, e)
+        caption.textContent = null
+        Globe.transitionMode(globe, 'dragging')
 
       dragMove: (e) ->
-        prevMouse = interaction.mouse
-        interaction.mouse = Globe.containerOffset(container, e)
-        ds = interaction.mouse.clone().sub(prevMouse).multiply(Globe.vec2(-1, 1))
-        interaction.targetRotation.add(ds.multiplyScalar(0.004))
-        interaction.targetRotation.setY(Globe.clamp([-Math.PI/2, Math.PI/2], interaction.targetRotation.y))
+        prevMouse = globe.interaction.mouse
+        globe.interaction.mouse = Globe.containerOffset(globe.container, e)
+        ds = globe.interaction.mouse.clone().sub(prevMouse).multiply(Globe.vec2(-1, 1))
+        globe.interaction.targetRotation.add(ds.multiplyScalar(0.004))
+        globe.interaction.targetRotation.setY(Globe.clamp([-Math.PI/2, Math.PI/2], globe.interaction.targetRotation.y))
 
       dragStop: (e) ->
-        container.style.cursor = null
-        mode = Globe.transitionMode(container, events, mode, 'rest')
+        globe.container.style.cursor = null
+        Globe.transitionMode(globe, 'rest')
 
-    mode = Globe.transitionMode(container, events, mode, 'rest')
+    Globe.transitionMode(globe, 'rest')
 
-  transitionMode: (container, events, prevMode, mode) ->
-    targets = {container: container, document: document}
+  transitionMode: (globe, mode) ->
+    targets = {container: globe.container, document: document}
 
-    if prevMode?
-      for binding in Globe.eventModes[prevMode]
-        targets[binding[0]].removeEventListener(binding[1], events[binding[2]])
+    if globe.interaction.mode?
+      for binding in Globe.eventModes[globe.interaction.mode]
+        targets[binding[0]].removeEventListener(binding[1], globe.interaction.events[binding[2]])
 
     for binding in Globe.eventModes[mode]
-      targets[binding[0]].addEventListener(binding[1], events[binding[2]])
+      targets[binding[0]].addEventListener(binding[1], globe.interaction.events[binding[2]])
 
-    mode
+    globe.interaction.mode = mode
+
+  setCaption: (text) ->
+    caption = document.getElementById('caption')
+    caption.textContent = text
 
   setupScene: (w, h, textures) ->
     gl =
@@ -151,10 +167,11 @@ Globe =
 
   positionPin: (gl, pin, pos) ->
     verts = pin.line.geometry.vertices
-    verts[0].copy(pos.normalize().multiplyScalar(200))
-    verts[1].copy(verts[0].clone().multiplyScalar(1.04))
+    verts[0].copy(Globe.vec3(0, 0, 0))
+    verts[1].copy(pos.normalize().multiplyScalar(8))
     pin.line.geometry.verticesNeedUpdate = true
-    pin.sprite.position.copy(verts[1].clone().multiplyScalar(1.005))
+    pin.sprite.position.copy(pos.normalize().multiplyScalar(9))
+    pin.position.copy(pos.normalize().multiplyScalar(200))
 
   animate: (render) ->
     requestAnimationFrame () -> Globe.animate(render)
@@ -180,11 +197,21 @@ Globe =
     gl.camera.lookAt(Globe.vec3(0, 0, 0))
     gl.renderer.render(gl.scene, gl.camera)
 
-  raycast: (gl, mouse) ->
-    direction = Globe.vec3(mouse.x, mouse.y, 0)
+  glMouse: (mouse) ->
+    mouse.clone()
+      .multiplyScalar(2/800)
+      .addScalar(-1)
+      .multiply(Globe.vec2(1, -1))
+
+  rayDirection: (gl, mouse) ->
+    glmouse = Globe.glMouse(mouse)
+    Globe.vec3(glmouse.x, glmouse.y, 0)
       .unproject(gl.camera)
       .sub(gl.camera.position)
       .normalize()
+
+  raycast: (gl, mouse) ->
+    direction = Globe.rayDirection(gl, mouse)
 
     raycaster = new THREE.Raycaster()
     raycaster.set(gl.camera.position, direction)
@@ -192,6 +219,22 @@ Globe =
 
     if hits.length > 0
       hits[0].point
+    else
+      null
+
+  raycastPin: (gl, mouse) ->
+    direction = Globe.rayDirection(gl, mouse)
+
+    raycaster = new THREE.Raycaster()
+    raycaster.set(gl.camera.position, direction)
+    raycaster.linePrecision = 10
+
+    objs = gl.pins.children.map (pin) ->  pin.line
+    objs.push(gl.mesh)
+    hits = raycaster.intersectObjects(objs, false)
+    
+    if hits.length > 0 && hits[0].object.type == 'Line'
+      hits[0].object.parent
     else
       null
 
