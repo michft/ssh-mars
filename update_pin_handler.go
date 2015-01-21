@@ -12,11 +12,12 @@ type UpdatePinHandler HandlerWithDBConnection
 func (hd *UpdatePinHandler) ServeHTTP(resp http.ResponseWriter, request *http.Request) {
 	db := hd.db
 
-	userId, sessionId, sessionSecret, csrfToken, signedIn, err := userIdFromSession(request, db)
-	if err != nil {
-		fmt.Println("reading session cookie:", err)
+	session, err := sessionFromRequest(request, db)
+	if err == ErrInvalidSession {
+		fmt.Println(err)
 		clearSessionCookie(resp)
 	}
+	signedIn := err == nil
 
 	if !signedIn {
 		fmt.Println("updating pins: not signed in")
@@ -24,20 +25,20 @@ func (hd *UpdatePinHandler) ServeHTTP(resp http.ResponseWriter, request *http.Re
 		return
 	}
 
-	if request.PostFormValue("csrf_token") != csrfToken {
+	if request.PostFormValue("csrf_token") != session.csrfToken {
 		fmt.Println("invalid csrf token")
 		http.Error(resp, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
 
-	keepSessionAlive(resp, db, sessionId, sessionSecret)
+	keepSessionAlive(resp, db, session)
 
 	latStr := request.PostFormValue("lat")
 	lonStr := request.PostFormValue("lon")
 	timestamp := time.Now().Unix()
 
 	if latStr == "" && lonStr == "" {
-		_, err = db.Exec("update users set lat = null, lon = null, pin_updated_at = null where user_id = ?", userId)
+		_, err = db.Exec("update users set lat = null, lon = null, pin_updated_at = null where user_id = ?", session.userId)
 		if err != nil {
 			fmt.Println("updating pin position:", err)
 			http.Error(resp, "Internal server error", http.StatusInternalServerError)
@@ -55,7 +56,7 @@ func (hd *UpdatePinHandler) ServeHTTP(resp http.ResponseWriter, request *http.Re
 			return
 		}
 
-		_, err = db.Exec("update users set lat = ?, lon = ?, pin_updated_at = ? where user_id = ?", lat, lon, timestamp, userId)
+		_, err = db.Exec("update users set lat = ?, lon = ?, pin_updated_at = ? where user_id = ?", lat, lon, timestamp, session.userId)
 		if err != nil {
 			fmt.Println("updating pin position:", err)
 			http.Error(resp, "Internal server error", http.StatusInternalServerError)

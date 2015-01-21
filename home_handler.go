@@ -3,12 +3,25 @@ package main
 import (
 	"crypto/subtle"
 	"database/sql"
+	"errors"
 	"fmt"
 	"golang.org/x/crypto/ssh"
 	"html/template"
 	"net/http"
 	"time"
 )
+
+var (
+	ErrNotSignedIn    = errors.New("not signed in")
+	ErrInvalidSession = errors.New("invalid session token")
+)
+
+type UserSession struct {
+	userId        int
+	sessionId     string
+	sessionSecret string
+	csrfToken     string
+}
 
 type HomeHandler struct {
 	db         *sql.DB
@@ -40,25 +53,25 @@ func (hd *HomeHandler) ServeHTTP(resp http.ResponseWriter, request *http.Request
 		return
 	}
 
-	userId, sessionId, sessionSecret, csrfToken, signedIn, err := userIdFromSession(request, db)
-	if err != nil {
-		fmt.Println("reading session cookie:", err)
+	session, err := sessionFromRequest(request, db)
+	if err == ErrInvalidSession {
+		fmt.Println(err)
 		clearSessionCookie(resp)
 	}
+	signedIn := err == nil
 
 	var pubkey []byte
 	var fingerprint string
 
 	if signedIn {
-		err = db.QueryRow("select pubkey from users where user_id = ?", userId).Scan(&pubkey)
+		err = db.QueryRow("select pubkey from users where user_id = ?", session.userId).Scan(&pubkey)
 		if err != nil {
 			fmt.Println("retrieving pubkey:", err)
 			http.Error(resp, "Internal server error", http.StatusInternalServerError)
 			return
 		}
 		fingerprint = pubkeyFingerprintMD5(pubkey)
-
-		keepSessionAlive(resp, db, sessionId, sessionSecret)
+		keepSessionAlive(resp, db, session)
 	}
 
 	hostFingerprint := pubkeyFingerprintMD5(hd.hostPubkey.Marshal())
@@ -75,9 +88,9 @@ func (hd *HomeHandler) ServeHTTP(resp http.ResponseWriter, request *http.Request
 		ThrowawayPage:    path == "/throwaway",
 		FingerprintPage:  path == "/fingerprint",
 		SignedIn:         signedIn,
-		UserId:           userId,
+		UserId:           session.userId,
 		Fingerprint:      fingerprint,
-		CSRFToken:        csrfToken,
+		CSRFToken:        session.csrfToken,
 		Domain:           hd.domain,
 		HostFingerprint1: hostFingerprint1,
 		HostFingerprint2: hostFingerprint2,
@@ -86,39 +99,39 @@ func (hd *HomeHandler) ServeHTTP(resp http.ResponseWriter, request *http.Request
 	t.Execute(resp, context)
 }
 
-func userIdFromSession(request *http.Request, db *sql.DB) (int, string, string, string, bool, error) {
+func sessionFromRequest(request *http.Request, db *sql.DB) (UserSession, error) {
+	session := UserSession{}
+
 	cookie, err := request.Cookie("session")
 	if err == http.ErrNoCookie {
-		return 0, "", "", "", false, nil
+		return session, ErrNotSignedIn
 	} else if err != nil {
-		return 0, "", "", "", false, err
+		return session, ErrInvalidSession
 	}
 
 	sessionToken := cookie.Value
 
 	if len(sessionToken) != sessionIdLength+sessionSecretLength {
-		return 0, "", "", "", false, fmt.Errorf("invalid session token")
+		return session, ErrInvalidSession
 	}
 
-	sessionId := sessionToken[:sessionIdLength]
+	session.sessionId = sessionToken[:sessionIdLength]
 	providedSessionSecret := sessionToken[sessionIdLength:]
 
-	var userId int
-	var sessionSecret, csrfToken string
-	err = db.QueryRow("select user_id, session_secret, csrf_token from sessions where session_id = ?", sessionId).Scan(&userId, &sessionSecret, &csrfToken)
+	err = db.QueryRow("select user_id, session_secret, csrf_token from sessions where session_id = ?", session.sessionId).Scan(&session.userId, &session.sessionSecret, &session.csrfToken)
 	if err != nil {
-		return 0, "", "", "", false, err
+		return session, ErrInvalidSession
 	}
 
-	if subtle.ConstantTimeCompare([]byte(providedSessionSecret), []byte(sessionSecret)) != 1 {
-		return 0, "", "", "", false, fmt.Errorf("invalid session token")
+	if subtle.ConstantTimeCompare([]byte(providedSessionSecret), []byte(session.sessionSecret)) != 1 {
+		return session, ErrInvalidSession
 	}
 
-	return userId, sessionId, sessionSecret, csrfToken, true, nil
+	return session, nil
 }
 
-func keepSessionAlive(resp http.ResponseWriter, db *sql.DB, id, secret string) {
+func keepSessionAlive(resp http.ResponseWriter, db *sql.DB, session UserSession) {
 	timestamp := time.Now().Unix()
-	db.Exec("update sessions set last_active = ? where session_id = ?", timestamp, id)
-	setSessionCookie(resp, id, secret)
+	db.Exec("update sessions set last_active = ? where session_id = ?", timestamp, session.sessionId)
+	setSessionCookie(resp, session.sessionId, session.sessionSecret)
 }
