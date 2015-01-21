@@ -263,11 +263,19 @@ Pin =
     s = easing(s) if easing?
     s * (range[1]-range[0]) + range[0]
 
-spinner = Util.id('spinner-container')
-spinner.style.display = null
-Nav.init()
-Globe.loadEverything (textures, xhr) ->
-  spinner.parentNode.removeChild(spinner)
-  globe = Globe.init(Util.id('gl'), textures, xhr)
-  globe.container.style.display = null
-  pin = Pin.init(globe)
+if Detector.webgl
+  spinner = Util.id('spinner-container')
+  spinner.style.display = null
+  Nav.init()
+  Globe.loadEverything (textures, xhr) ->
+    spinner.parentNode.removeChild(spinner)
+    globe = Globe.init(Util.id('gl'), textures, xhr)
+    globe.container.style.display = null
+    pin = Pin.init(globe)
+else
+  container = Util.id('gl')
+  container.style.display = null
+  Util.element 'img',
+      src: 'nogl.jpg'
+      alt: "WebGL is missing"
+    .inject(container)
