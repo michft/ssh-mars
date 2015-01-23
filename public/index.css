@@ -118,6 +118,8 @@ p {
 }
 
 .button {
+  font-family: inherit;
+  font-size: inherit;
   margin: 32px 0 8px;
   color: #000;
   background-color: #fff;

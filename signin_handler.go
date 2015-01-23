@@ -25,9 +25,10 @@ func (hd *SigninHandler) ServeHTTP(resp http.ResponseWriter, request *http.Reque
 	signinId := signinToken[:signinIdLength]
 	providedSigninSecret := signinToken[signinIdLength:]
 
-	var pubkey []byte
 	var signinSecret string
-	err := db.QueryRow("select signin_secret, pubkey from signin_requests where signin_id = ?", signinId).Scan(&signinSecret, &pubkey)
+	var csrfToken string
+	var pubkey []byte
+	err := db.QueryRow("select signin_secret, csrf_token, pubkey from signin_requests where signin_id = ?", signinId).Scan(&signinSecret, &csrfToken, &pubkey)
 
 	if err == sql.ErrNoRows {
 		fmt.Printf("no signin request for token: %q\n", signinToken)
@@ -36,6 +37,12 @@ func (hd *SigninHandler) ServeHTTP(resp http.ResponseWriter, request *http.Reque
 	} else if err != nil {
 		fmt.Println("retrieving signin token:", err)
 		http.Error(resp, "Invalid signin token", http.StatusBadRequest)
+		return
+	}
+
+	if subtle.ConstantTimeCompare([]byte(request.PostFormValue("csrf_token")), []byte(csrfToken)) != 1 {
+		fmt.Println("invalid csrf token")
+		http.Error(resp, "Invalid CSRF token", http.StatusBadRequest)
 		return
 	}
 
@@ -83,7 +90,7 @@ func (hd *SigninHandler) ServeHTTP(resp http.ResponseWriter, request *http.Reque
 		return
 	}
 
-	csrfToken, err := randomToken(csrfTokenLength)
+	csrfToken, err = randomToken(csrfTokenLength)
 	if err != nil {
 		fmt.Println("generating random token:", err)
 		http.Error(resp, "There was an error signing you in", http.StatusInternalServerError)

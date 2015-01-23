@@ -52,6 +52,7 @@ func loadSchema(db *sql.DB) error {
 		created_at integer not null,
 		signin_id text not null,
 		signin_secret text not null,
+		csrf_token text not null,
 		pubkey blob not null
 	);
 

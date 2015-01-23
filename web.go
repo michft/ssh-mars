@@ -15,7 +15,8 @@ type HandlerWithDBConnection struct {
 func startHTTPServer(bind string, domain string, hostPubkey ssh.PublicKey, db *sql.DB) {
 	r := mux.NewRouter()
 
-	r.Handle("/signin/{token}", &SigninHandler{db: db}).Methods("GET")
+	r.Handle("/signin/{token}", &SigninConfirmationHandler{db: db}).Methods("GET")
+	r.Handle("/signin/{token}", &SigninHandler{db: db}).Methods("POST")
 	r.Handle("/signout", &SignoutHandler{db: db}).Methods("POST")
 	r.Handle("/delete-account", &DeleteAccountHandler{db: db}).Methods("POST")
 

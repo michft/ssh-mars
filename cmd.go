@@ -87,8 +87,13 @@ func storeSigninRequest(db *sql.DB, pubkey []byte, domain string) (string, error
 		return "", err
 	}
 
+	csrfToken, err := randomToken(csrfTokenLength)
+	if err != nil {
+		return "", err
+	}
+
 	timestamp := time.Now().Unix()
-	_, err = db.Exec("insert into signin_requests (created_at, signin_id, signin_secret, pubkey) values (?, ?, ?, ?)", timestamp, id, secret, pubkey)
+	_, err = db.Exec("insert into signin_requests (created_at, signin_id, signin_secret, csrf_token, pubkey) values (?, ?, ?, ?, ?)", timestamp, id, secret, csrfToken, pubkey)
 	if err != nil {
 		return "", err
 	}
