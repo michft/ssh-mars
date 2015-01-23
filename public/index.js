@@ -317,7 +317,7 @@
     container = Util.id('gl');
     container.style.display = null;
     Util.element('img', {
-      src: 'nogl.jpg',
+      src: 'images/nogl.jpg',
       alt: "WebGL is missing"
     }).inject(container);
   }

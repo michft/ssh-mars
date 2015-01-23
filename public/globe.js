@@ -34,10 +34,10 @@
     loadEverything: function(success) {
       var textures, xhr;
       textures = {
-        surface: 'mars_filtered_2500.jpg',
-        bump: 'mars_elevation_2500.jpg',
-        pinHead: 'circle.png',
-        pinHeadMine: 'circle_b.png'
+        surface: 'images/mars_filtered_2500.jpg',
+        bump: 'images/mars_elevation_2500.jpg',
+        pinHead: 'images/circle.png',
+        pinHeadMine: 'images/circle_b.png'
       };
       xhr = {
         pins: 'pins.csv'

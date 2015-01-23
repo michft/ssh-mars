@@ -27,12 +27,12 @@
         </div>
 
         <div id="signin" class="subpage" {{ if .SigninPage }}{{ else }}hidden{{ end }}>
-          <a href="/" class="back sp-link"><img src="back.svg"/><span>Back</span></a>
+          <a href="/" class="back sp-link"><img src="images/back.svg"/><span>Back</span></a>
           <p>This demo shows how it's possible to sign into websites using SSH.</p>
           <h2>Already have an SSH key?</h2>
           <p><code>ssh -q {{ .Domain }}</code></p>
           <h2>New to SSH?</h2>
-          <p><a href="how" class="sp-link">Here's how to do it</a></p>
+          <p><a href="how">Here's how to do it</a></p>
           <div class="footnotes">
             <p><a href="throwaway" class="sp-link">Use a throwaway key</a></p>
             <p><a href="fingerprint" class="sp-link">Server fingerprint</a></p>
@@ -41,7 +41,7 @@
         </div>
 
         <div id="throwaway" class="subpage" {{ if .ThrowawayPage }}{{ else }}hidden{{ end }}>
-          <a href="/signin" class="back sp-link"><img src="back.svg"/><span>Back</span></a>
+          <a href="/signin" class="back sp-link"><img src="images/back.svg"/><span>Back</span></a>
           <h2>Throwaway keys</h2>
           <p>After signing in, your SSH fingerprint is publicly displayed.</p>
           <p>If you'd rather not reveal your regular fingerprint, make a throwaway instead:</p>
@@ -53,7 +53,7 @@
         </div>
 
         <div id="fingerprint" class="subpage" {{ if .FingerprintPage }}{{ else }}hidden{{ end }}>
-          <a href="/signin" class="back sp-link"><img src="back.svg"/><span>Back</span></a>
+          <a href="/signin" class="back sp-link"><img src="images/back.svg"/><span>Back</span></a>
           <h2>Server fingerprint</h2>
           <p>
             <code class="fingerprint">{{ .HostFingerprint1 }}</code>
@@ -74,7 +74,7 @@
         </div>
       </div>
       <noscript>
-        <img src="nojs.jpg" alt="Please enable Javascript" width="800" height="800" />
+        <img src="images/nojs.jpg" alt="Please enable Javascript" width="800" height="800" />
       </noscript>
       <div id="gl-container">
         <div id="gl" style="display: none"></div>
