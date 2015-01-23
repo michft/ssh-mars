@@ -27,6 +27,8 @@ func startHTTPServer(bind string, domain string, hostPubkey ssh.PublicKey, db *s
 	r.Handle("/pins.csv", &PinsHandler{db: db}).Methods("GET")
 	r.Handle("/pin", &UpdatePinHandler{db: db}).Methods("POST")
 
+	r.HandleFunc("/how", HowHandler).Methods("GET")
+
 	r.PathPrefix("/").Handler(http.FileServer(http.Dir("public")))
 
 	http.Handle("/", r)
