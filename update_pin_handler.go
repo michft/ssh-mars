@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/subtle"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -25,9 +26,9 @@ func (hd *UpdatePinHandler) ServeHTTP(resp http.ResponseWriter, request *http.Re
 		return
 	}
 
-	if request.PostFormValue("csrf_token") != session.csrfToken {
+	if subtle.ConstantTimeCompare([]byte(request.PostFormValue("csrf_token")), []byte(session.csrfToken)) != 1 {
 		fmt.Println("invalid csrf token")
-		http.Error(resp, "Unauthorized", http.StatusUnauthorized)
+		http.Error(resp, "Invalid CSRF token", http.StatusBadRequest)
 		return
 	}
 

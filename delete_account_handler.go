@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/subtle"
 	"fmt"
 	"net/http"
 )
@@ -23,9 +24,9 @@ func (hd *DeleteAccountHandler) ServeHTTP(resp http.ResponseWriter, request *htt
 		return
 	}
 
-	if request.PostFormValue("csrf_token") != session.csrfToken {
+	if subtle.ConstantTimeCompare([]byte(request.PostFormValue("csrf_token")), []byte(session.csrfToken)) != 1 {
 		fmt.Println("invalid csrf token")
-		http.Error(resp, "Unauthorized", http.StatusUnauthorized)
+		http.Error(resp, "Invalid CSRF token", http.StatusBadRequest)
 		return
 	}
 
