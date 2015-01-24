@@ -13,10 +13,10 @@ type HandlerWithDBConnection struct {
 	db *sql.DB
 }
 
-func startWebServer(bind, certFile, keyFile, sshAdvertise, assetsDir string, logger *lumberjack.Logger, hostPubkey ssh.PublicKey, db *sql.DB) {
+func startWebServer(bind, certFile, keyFile, sshAdvertise, assetsDir string, logger *lumberjack.Logger, hostPubkey ssh.PublicKey, db *sql.DB, broker *Broker) {
 	r := mux.NewRouter()
 
-	r.Handle("/signin/{token}", &SigninConfirmationHandler{db: db, assetsDir: assetsDir}).Methods("GET")
+	r.Handle("/signin/{token}/notify", &SigninNotifyHandler{db: db, broker: broker}).Methods("GET")
 	r.Handle("/signin/{token}", &SigninHandler{db: db}).Methods("POST")
 	r.Handle("/signout", &SignoutHandler{db: db}).Methods("POST")
 	r.Handle("/delete-account", &DeleteAccountHandler{db: db}).Methods("POST")

@@ -10,7 +10,7 @@ import (
 	"strings"
 )
 
-type successHandler func(pubkey []byte) (string, error)
+type successHandler func(pubkey []byte, token string) error
 
 func startSSHServer(bind string, hostKey ssh.Signer, hd successHandler) error {
 	sshConfig := &ssh.ServerConfig{
@@ -64,16 +64,20 @@ func handleTCPConnection(tcpConn net.Conn, sshConfig *ssh.ServerConfig, hd succe
 		}
 
 		for req := range requests {
-			if req.Type == "shell" {
+			if req.Type == "exec" {
 				req.Reply(true, nil)
 				pubkey := []byte(sshConn.Permissions.Extensions["pubkey"])
-				url, err := hd(pubkey)
+
+				if len(req.Payload) < 4 {
+					fmt.Fprintln(os.Stderr, "ssh exec payload too short")
+					break
+				}
+
+				err := hd(pubkey, string(req.Payload[4:]))
 
 				if err != nil {
 					fmt.Fprintln(os.Stderr, err)
 					fmt.Fprintln(channel.Stderr(), "Sorry, there was an error signing you in :(")
-				} else {
-					fmt.Fprintln(channel, url)
 				}
 
 				break

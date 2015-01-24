@@ -4,6 +4,7 @@ import (
 	"crypto/md5"
 	"crypto/rand"
 	"crypto/sha256"
+	"crypto/subtle"
 	"database/sql"
 	"fmt"
 	"github.com/duncankl/zbase32"
@@ -30,7 +31,7 @@ type Options struct {
 
 const (
 	signinIdLength      = 4
-	signinSecretLength  = 16
+	signinSecretLength  = 8
 	sessionIdLength     = 8
 	sessionSecretLength = 40
 	csrfTokenLength     = 40
@@ -68,8 +69,10 @@ func main() {
 	}
 	hostPubkey := hostKey.PublicKey()
 
-	generateSigninURL := func(pubkey []byte) (string, error) {
-		return storeSigninRequest(db, pubkey, options.HTTPAdvertise)
+	broker := NewBroker()
+
+	generateSigninURL := func(pubkey []byte, token string) error {
+		return authenticateSigninRequest(db, broker, pubkey, token)
 	}
 
 	err = startSSHServer(options.SSHListen, hostKey, generateSigninURL)
@@ -79,7 +82,7 @@ func main() {
 	}
 
 	// TODO: handle errors binding to port
-	startWebServer(options.HTTPListen, options.TLSCert, options.TLSKey, options.SSHAdvertise, options.AssetsDir, logger, hostPubkey, db)
+	startWebServer(options.HTTPListen, options.TLSCert, options.TLSKey, options.SSHAdvertise, options.AssetsDir, logger, hostPubkey, db, broker)
 
 	sessionSweeper(db)
 
@@ -90,33 +93,44 @@ func main() {
 	<-sig
 }
 
-func storeSigninRequest(db *sql.DB, pubkey []byte, domain string) (string, error) {
-	if len(pubkey) > 10000 {
-		return "", fmt.Errorf("public key is too large (%v bytes)", len(pubkey))
+func authenticateSigninRequest(db *sql.DB, broker *Broker, providedPubkey []byte, signinToken string) error {
+	if len(providedPubkey) > 10000 {
+		return fmt.Errorf("public key is too large (%v bytes)", len(providedPubkey))
 	}
 
-	id, err := randomToken(signinIdLength)
+	if len(signinToken) != signinIdLength+signinSecretLength {
+		return fmt.Errorf("invalid length for signin token: %v", len(signinToken))
+	}
+
+	signinId := signinToken[:signinIdLength]
+	providedSigninSecret := signinToken[signinIdLength:]
+
+	var signinSecret string
+	var pubkey []byte
+	err := db.QueryRow("select signin_secret, pubkey from signin_requests where signin_id = ?", signinId).Scan(&signinSecret, &pubkey)
+
+	if err == sql.ErrNoRows {
+		return fmt.Errorf("no signin request for token: %q", signinToken)
+	} else if err != nil {
+		return fmt.Errorf("retrieving signin token:", err)
+	}
+
+	if subtle.ConstantTimeCompare([]byte(providedSigninSecret), []byte(signinSecret)) != 1 {
+		return fmt.Errorf("incorrect signin token: %q", signinToken)
+	}
+
+	if len(pubkey) != 0 && subtle.ConstantTimeCompare(providedPubkey, pubkey) != 1 {
+		return fmt.Errorf("this signin request has already been authenticated")
+	}
+
+	_, err = db.Exec("update signin_requests set pubkey = ? where signin_id = ? and signin_secret = ?", providedPubkey, signinId, signinSecret)
 	if err != nil {
-		return "", err
+		return err
 	}
 
-	secret, err := randomToken(signinSecretLength)
-	if err != nil {
-		return "", err
-	}
+	broker.Notifier <- signinToken
 
-	csrfToken, err := randomToken(csrfTokenLength)
-	if err != nil {
-		return "", err
-	}
-
-	timestamp := time.Now().Unix()
-	_, err = db.Exec("insert into signin_requests (created_at, signin_id, signin_secret, csrf_token, pubkey) values (?, ?, ?, ?, ?)", timestamp, id, secret, csrfToken, pubkey)
-	if err != nil {
-		return "", err
-	}
-
-	return fmt.Sprintf("https://%s/signin/%s%s", domain, id, secret), nil
+	return nil
 }
 
 func sessionSweeper(db *sql.DB) {

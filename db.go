@@ -27,8 +27,8 @@ func setupDB(dbPath string) (*sql.DB, error) {
 		if err != nil {
 			return nil, err
 		}
-		if version != 1 {
-			return nil, fmt.Errorf("existing schema is version %v, expected version 1", version)
+		if version != 2 {
+			return nil, fmt.Errorf("existing schema is version %v, expected version 2", version)
 		}
 		return db, nil
 	}
@@ -46,14 +46,14 @@ func loadSchema(db *sql.DB) error {
 	begin;
 
 	create table schema_versions (version integer not null primary key);
-	insert into schema_versions values (1);
+	insert into schema_versions values (2);
 
 	create table signin_requests (
 		created_at integer not null,
 		signin_id text not null,
 		signin_secret text not null,
 		csrf_token text not null,
-		pubkey blob not null
+		pubkey blob
 	);
 
 	create table sessions (

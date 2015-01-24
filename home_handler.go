@@ -40,6 +40,7 @@ type HomeContext struct {
 	SignedIn           bool
 	UserId             int
 	Fingerprint        string
+	SigninToken        string
 	CSRFToken          string
 	SSHHost            string
 	SSHPort            string
@@ -67,6 +68,7 @@ func (hd *HomeHandler) ServeHTTP(resp http.ResponseWriter, request *http.Request
 
 	var pubkey []byte
 	var fingerprint string
+	var signinId, signinSecret, csrfToken string
 
 	if signedIn {
 		err = db.QueryRow("select pubkey from users where user_id = ?", session.userId).Scan(&pubkey)
@@ -77,6 +79,35 @@ func (hd *HomeHandler) ServeHTTP(resp http.ResponseWriter, request *http.Request
 		}
 		fingerprint = pubkeyFingerprintMD5(pubkey)
 		keepSessionAlive(resp, db, session)
+	} else {
+		signinId, err = randomToken(signinIdLength)
+		if err != nil {
+			fmt.Println(err)
+			http.Error(resp, "Internal server error", http.StatusInternalServerError)
+			return
+		}
+
+		signinSecret, err = randomToken(signinSecretLength)
+		if err != nil {
+			fmt.Println(err)
+			http.Error(resp, "Internal server error", http.StatusInternalServerError)
+			return
+		}
+
+		csrfToken, err = randomToken(csrfTokenLength)
+		if err != nil {
+			fmt.Println(err)
+			http.Error(resp, "Internal server error", http.StatusInternalServerError)
+			return
+		}
+
+		timestamp := time.Now().Unix()
+		_, err = db.Exec("insert into signin_requests (created_at, signin_id, signin_secret, csrf_token) values (?, ?, ?, ?)", timestamp, signinId, signinSecret, csrfToken)
+		if err != nil {
+			fmt.Println(err)
+			http.Error(resp, "Internal server error", http.StatusInternalServerError)
+			return
+		}
 	}
 
 	hostFingerprint := pubkeyFingerprintMD5(hd.hostPubkey.Marshal())
@@ -108,6 +139,11 @@ func (hd *HomeHandler) ServeHTTP(resp http.ResponseWriter, request *http.Request
 		SSHPortNonStandard: sshPort != "22",
 		HostFingerprint1:   hostFingerprint1,
 		HostFingerprint2:   hostFingerprint2,
+	}
+
+	if !signedIn {
+		context.SigninToken = fmt.Sprint(signinId, signinSecret)
+		context.CSRFToken = csrfToken
 	}
 
 	t.Execute(resp, context)

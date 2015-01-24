@@ -37,22 +37,32 @@
     },
     myFingerprint: function() {
       return Util.id('my-fingerprint').getAttribute('value');
+    },
+    signinToken: function() {
+      var token;
+      token = Util.id('signin-token').textContent;
+      if (token === '') {
+        return null;
+      } else {
+        return token;
+      }
     }
   };
 
   Nav = {
     init: function() {
-      var el, _i, _len, _ref, _results;
+      var el, _i, _len, _ref;
       Util.id('signout-link').addEventListener('click', Nav.signOut);
       Util.id('delete-link').addEventListener('click', Nav.deleteAccount);
       window.addEventListener('popstate', Nav.updateVisiblePage);
       _ref = document.getElementsByClassName('sp-link');
-      _results = [];
       for (_i = 0, _len = _ref.length; _i < _len; _i++) {
         el = _ref[_i];
-        _results.push(el.addEventListener('click', Nav.navigateSubPage));
+        el.addEventListener('click', Nav.navigateSubPage);
       }
-      return _results;
+      if (Util.signinToken() != null) {
+        return Nav.listenForSignin(Util.signinToken());
+      }
     },
     updateVisiblePage: function() {
       var el, page, _i, _len, _ref;
@@ -73,6 +83,23 @@
       href = e.target.href || e.target.parentNode.href;
       history.pushState(null, null, href);
       return Nav.updateVisiblePage();
+    },
+    listenForSignin: function(token) {
+      var source;
+      source = new EventSource('signin/' + token + '/notify');
+      return source.addEventListener('authenticated', function() {
+        var form;
+        form = Util.element('form', {
+          action: 'signin/' + token,
+          method: 'post'
+        }).inject(document.body);
+        Util.element('input', {
+          type: 'hidden',
+          name: 'csrf_token',
+          value: Util.csrfToken()
+        }).inject(form);
+        return form.submit();
+      });
     },
     signOut: function() {
       var form;
@@ -305,7 +332,6 @@
   if (Detector.webgl) {
     spinner = Util.id('spinner-container');
     spinner.style.display = null;
-    Nav.init();
     Globe.loadEverything(function(textures, xhr) {
       var globe, pin;
       spinner.parentNode.removeChild(spinner);
@@ -321,5 +347,7 @@
       alt: "WebGL is missing"
     }).inject(container);
   }
+
+  Nav.init();
 
 }).call(this);

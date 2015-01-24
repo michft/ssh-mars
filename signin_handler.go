@@ -40,6 +40,12 @@ func (hd *SigninHandler) ServeHTTP(resp http.ResponseWriter, request *http.Reque
 		return
 	}
 
+	if len(pubkey) == 0 {
+		fmt.Println("signin request not authenticated")
+		http.Error(resp, "Invalid signin token", http.StatusBadRequest)
+		return
+	}
+
 	if subtle.ConstantTimeCompare([]byte(request.PostFormValue("csrf_token")), []byte(csrfToken)) != 1 {
 		fmt.Println("invalid csrf token")
 		http.Error(resp, "Invalid CSRF token", http.StatusBadRequest)

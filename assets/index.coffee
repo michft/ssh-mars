@@ -27,6 +27,13 @@ Util =
   myFingerprint: () ->
     Util.id('my-fingerprint').getAttribute('value')
 
+  signinToken: () ->
+    token = Util.id('signin-token').textContent
+    if token == ''
+      null
+    else
+      token
+
 Nav =
   init: () ->
     Util.id('signout-link').addEventListener 'click', Nav.signOut
@@ -36,6 +43,9 @@ Nav =
 
     for el in document.getElementsByClassName('sp-link')
       el.addEventListener('click', Nav.navigateSubPage)
+
+    if Util.signinToken()?
+      Nav.listenForSignin(Util.signinToken())
   
   updateVisiblePage: () ->
     for el in Util.id('explain').childNodes
@@ -50,6 +60,22 @@ Nav =
     href = e.target.href || e.target.parentNode.href
     history.pushState(null, null, href)
     Nav.updateVisiblePage()
+
+  listenForSignin: (token) ->
+    source = new EventSource('signin/' + token + '/notify')
+    source.addEventListener 'authenticated', () ->
+      form = Util.element 'form',
+          action: 'signin/' + token
+          method: 'post'
+        .inject(document.body)
+
+      Util.element 'input',
+          type: 'hidden'
+          name: 'csrf_token'
+          value: Util.csrfToken()
+        .inject(form)
+
+      form.submit()
 
   signOut: () ->
     form = Util.element 'form',
@@ -269,7 +295,6 @@ Pin =
 if Detector.webgl
   spinner = Util.id('spinner-container')
   spinner.style.display = null
-  Nav.init()
   Globe.loadEverything (textures, xhr) ->
     spinner.parentNode.removeChild(spinner)
     globe = Globe.init(Util.id('gl'), textures, xhr)
@@ -282,3 +307,5 @@ else
       src: 'images/nogl.jpg'
       alt: "WebGL is missing"
     .inject(container)
+
+Nav.init()
