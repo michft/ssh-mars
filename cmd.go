@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"github.com/duncankl/zbase32"
 	"github.com/jessevdk/go-flags"
+	"gopkg.in/natefinch/lumberjack.v2"
 	"os"
 	"os/signal"
 	"strings"
@@ -15,14 +16,15 @@ import (
 )
 
 type Options struct {
-	SSHKey     string `long:"ssh-key" description:"Private key to identify server with." default:"ssh-host-key"`
-	TLSCert    string `long:"tls-cert" description:"TLS certificate file." default:"tls-host-key.pub"`
-	TLSKey     string `long:"tls-key" description:"TLS private key file." default:"tls-host-key"`
+	SSHKey     string `long:"ssh-key" description:"Private key to identify server with." default:"ssh-identity"`
+	TLSCert    string `long:"tls-cert" description:"TLS certificate file." default:"tls-identity.crt"`
+	TLSKey     string `long:"tls-key" description:"TLS private key file." default:"tls-identity.key"`
 	Database   string `long:"db" description:"SQLite database used to store persistent data." default:"mars.sqlite"`
 	SSHListen  string `long:"ssh-listen" description:"Host and port for SSH server to listen on." default:":2022"`
 	HTTPListen string `long:"http-listen" description:"Host and port for HTTP server to listen on." default:":3000"`
 	Domain     string `long:"domain" description:"Domain where this server is publicly accessible." default:"localhost"`
 	AssetsDir  string `long:"assets" description:"Directory containing the web assets." default:"assets"`
+	Log        string `long:"log" description:"Log file for HTTP requests." default:""`
 }
 
 const (
@@ -39,6 +41,17 @@ func main() {
 	_, err := parser.Parse()
 	if err != nil {
 		os.Exit(1)
+	}
+
+	var logger *lumberjack.Logger
+
+	if options.Log != "" {
+		logger = &lumberjack.Logger{
+			Filename:   options.Log,
+			MaxSize:    1,
+			MaxBackups: 3,
+			MaxAge:     28,
+		}
 	}
 
 	db, err := setupDB(options.Database)
@@ -65,7 +78,7 @@ func main() {
 	}
 
 	// TODO: handle errors binding to port
-	startHTTPServer(options.HTTPListen, options.TLSCert, options.TLSKey, options.Domain, options.AssetsDir, hostPubkey, db)
+	startWebServer(options.HTTPListen, options.TLSCert, options.TLSKey, options.Domain, options.AssetsDir, logger, hostPubkey, db)
 
 	sessionSweeper(db)
 

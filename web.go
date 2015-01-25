@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/gorilla/mux"
 	"golang.org/x/crypto/ssh"
+	"gopkg.in/natefinch/lumberjack.v2"
 	"net/http"
 )
 
@@ -12,7 +13,7 @@ type HandlerWithDBConnection struct {
 	db *sql.DB
 }
 
-func startHTTPServer(bind, certFile, keyFile, domain, assetsDir string, hostPubkey ssh.PublicKey, db *sql.DB) {
+func startWebServer(bind, certFile, keyFile, domain, assetsDir string, logger *lumberjack.Logger, hostPubkey ssh.PublicKey, db *sql.DB) {
 	r := mux.NewRouter()
 
 	r.Handle("/signin/{token}", &SigninConfirmationHandler{db: db, assetsDir: assetsDir}).Methods("GET")
@@ -32,10 +33,16 @@ func startHTTPServer(bind, certFile, keyFile, domain, assetsDir string, hostPubk
 
 	r.PathPrefix("/").Handler(http.FileServer(http.Dir(assetsDir)))
 
-	http.Handle("/", r)
+	var handler http.Handler = r
+	if logger != nil {
+		handler = http.HandlerFunc(func(resp http.ResponseWriter, req *http.Request) {
+			fmt.Fprintf(logger, "%s %s %s\n", req.RemoteAddr, req.Method, req.URL)
+			r.ServeHTTP(resp, req)
+		})
+	}
 
 	go func() {
-		err := http.ListenAndServeTLS(bind, certFile, keyFile, nil)
+		err := http.ListenAndServeTLS(bind, certFile, keyFile, handler)
 		if err != nil {
 			fmt.Println(err)
 		}
