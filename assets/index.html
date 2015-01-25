@@ -30,7 +30,7 @@
           <a href="/" class="back sp-link"><img src="images/back.svg"/><span>Back</span></a>
           <p>This demo shows how it's possible to sign into websites using SSH.</p>
           <h2>Already have an SSH key?</h2>
-          <p><code>ssh -q {{ .Domain }}</code></p>
+          <p><code>ssh {{ .Domain }}</code></p>
           <h2>New to SSH?</h2>
           <p><a href="how">Here's how to do it</a></p>
           <div class="footnotes">
@@ -47,7 +47,7 @@
           <p>If you'd rather not reveal your regular fingerprint, make a throwaway instead:</p>
           <p><code>ssh-keygen -f throwaway</code></p>
           <p>Then sign in like this:</p>
-          <p><code>ssh -qi throwaway {{ .Domain }}</code></p>
+          <p><code>ssh -i throwaway {{ .Domain }}</code></p>
           <p>Using ssh-agent? Disable your regular key before signing in:</p>
           <p><code>ssh-add -d</code></p>
         </div>
