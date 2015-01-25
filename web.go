@@ -12,7 +12,7 @@ type HandlerWithDBConnection struct {
 	db *sql.DB
 }
 
-func startHTTPServer(bind, domain, assetsDir string, hostPubkey ssh.PublicKey, db *sql.DB) {
+func startHTTPServer(bind, certFile, keyFile, domain, assetsDir string, hostPubkey ssh.PublicKey, db *sql.DB) {
 	r := mux.NewRouter()
 
 	r.Handle("/signin/{token}", &SigninConfirmationHandler{db: db, assetsDir: assetsDir}).Methods("GET")
@@ -35,7 +35,7 @@ func startHTTPServer(bind, domain, assetsDir string, hostPubkey ssh.PublicKey, d
 	http.Handle("/", r)
 
 	go func() {
-		err := http.ListenAndServe(bind, nil)
+		err := http.ListenAndServeTLS(bind, certFile, keyFile, nil)
 		if err != nil {
 			fmt.Println(err)
 		}

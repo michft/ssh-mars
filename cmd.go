@@ -15,8 +15,10 @@ import (
 )
 
 type Options struct {
-	Identity  string `short:"i" long:"identity" description:"Private key to identify server with." default:"host_key"`
-	Database  string `long:"db" description:"Path of the sqlite database used to store persistent data." default:"mars.sqlite"`
+	SSHKey    string `long:"ssh-key" description:"Private key to identify server with." default:"host_key"`
+	TLSCert   string `long:"tls-cert" description:"TLS certificate file." default:"tls.crt"`
+	TLSKey    string `long:"tls-key" description:"TLS private key file." default:"tls.key"`
+	Database  string `long:"db" description:"SQLite database used to store persistent data." default:"mars.sqlite"`
 	SSHBind   string `long:"ssh" description:"Host and port for SSH server to listen on." default:":2022"`
 	HTTPBind  string `long:"http" description:"Host and port for HTTP server to listen on." default:":3000"`
 	Domain    string `long:"domain" description:"Domain where this server is publicly accessible." default:"localhost"`
@@ -45,7 +47,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	hostKey, err := readPrivateKey(options.Identity)
+	hostKey, err := readPrivateKey(options.SSHKey)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
@@ -63,7 +65,7 @@ func main() {
 	}
 
 	// TODO: handle errors binding to port
-	startHTTPServer(options.HTTPBind, options.Domain, options.AssetsDir, hostPubkey, db)
+	startHTTPServer(options.HTTPBind, options.TLSCert, options.TLSKey, options.Domain, options.AssetsDir, hostPubkey, db)
 
 	sessionSweeper(db)
 
@@ -100,7 +102,7 @@ func storeSigninRequest(db *sql.DB, pubkey []byte, domain string) (string, error
 		return "", err
 	}
 
-	return fmt.Sprintf("http://%s/signin/%s%s", domain, id, secret), nil
+	return fmt.Sprintf("https://%s/signin/%s%s", domain, id, secret), nil
 }
 
 func sessionSweeper(db *sql.DB) {

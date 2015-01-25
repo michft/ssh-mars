@@ -1,5 +1,6 @@
 BINARY = ssh-into-mars
-KEY = host_key
+SSHKEY = dist/ssh-host-key
+TLSKEY = dist/tls-host-key
 
 all: $(BINARY)
 
@@ -14,8 +15,20 @@ build: $(BINARY)
 clean:
 	rm $(BINARY)
 
-$(KEY):
-	ssh-keygen -f $(KEY) -P ''
+$(SSHKEY):
+	ssh-keygen -f $(SSHKEY) -P ''
 
-run: $(BINARY) $(KEY)
-	./$(BINARY) -i $(KEY)
+$(TLSKEY):
+	openssl req -x509 -newkey rsa:2048 -nodes -subj /CN=localhost -days 365 -keyout $(TLSKEY) -out $(TLSKEY).pub
+
+run: $(BINARY) $(SSHKEY) $(TLSKEY)
+	./$(BINARY) --ssh-key $(SSHKEY) --tls-cert $(TLSKEY).pub --tls-key $(TLSKEY)
+
+dist/ssh-into-mars.tar.gz: $(BINARY) assets
+	tar -zcf dist/ssh-into-mars.tar.gz $(BINARY) assets
+
+dist/ssh-into-mars-1-1-any.pkg.tar.xz: dist/PKGBUILD dist/ssh-into-mars.tar.gz
+	cd dist && makepkg -fc
+
+package: dist/ssh-into-mars-1-1-any.pkg.tar.xz
+
