@@ -1,34 +1,40 @@
-BINARY = ssh-into-mars
-SSHKEY = dist/ssh-host-key
-TLSKEY = dist/tls-host-key
+proj = ssh-mars
+binary = $(proj)
+rundir = run
+sshkey = $(rundir)/ssh-identity
+tlskey = $(rundir)/tls-identity
+db = $(rundir)/mars.sqlite
+pkg = $(proj)-1-1-any.pkg.tar.xz
+user = root
+host = mars.vtllf.org
+serviceport = 9291
 
-all: $(BINARY)
-
-$(BINARY): *.go
+build: *.go
 	go build .
 
 deps:
 	go get .
 
-build: $(BINARY)
-
 clean:
-	rm $(BINARY)
+	rm $(binary)
 
-$(SSHKEY):
-	ssh-keygen -f $(SSHKEY) -P ''
+keygen:
+	ssh-keygen -f $(sshkey) -P ''
+	openssl req -x509 -newkey rsa:2048 -nodes -subj /CN=localhost -days 365 -keyout $(tlskey).key -out $(tlskey).crt
 
-$(TLSKEY):
-	openssl req -x509 -newkey rsa:2048 -nodes -subj /CN=localhost -days 365 -keyout $(TLSKEY) -out $(TLSKEY).pub
+run: build
+	./$(binary) --ssh-key $(sshkey) --tls-cert $(tlskey).crt --tls-key $(tlskey).key --db $(db)
 
-run: $(BINARY) $(SSHKEY) $(TLSKEY)
-	./$(BINARY) --ssh-key $(SSHKEY) --tls-cert $(TLSKEY).pub --tls-key $(TLSKEY)
+archive: build
+	tar -zcf dist/$(proj).tar.gz $(binary) assets
 
-dist/ssh-into-mars.tar.gz: $(BINARY) assets
-	tar -zcf dist/ssh-into-mars.tar.gz $(BINARY) assets
+package: archive dist/PKGBUILD
+	cd dist && makepkg --skipinteg -fc
 
-dist/ssh-into-mars-1-1-any.pkg.tar.xz: dist/PKGBUILD dist/ssh-into-mars.tar.gz
-	cd dist && makepkg -fc
+deploy: package
+	rsync -e "ssh -p $(serviceport)" dist/$(pkg) $(user)@$(host):/var/cache/pacman/pkg/
+	ssh -p $(serviceport) $(user)@$(host) \
+		"pacman --noconfirm --force -U /var/cache/pacman/pkg/$(pkg); \
+		systemctl restart $(proj).service;"
 
-package: dist/ssh-into-mars-1-1-any.pkg.tar.xz
-
+.PHONY: build deps clean keygen run archive deploy
