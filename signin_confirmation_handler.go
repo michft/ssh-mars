@@ -62,7 +62,6 @@ func (hd *SigninConfirmationHandler) ServeHTTP(resp http.ResponseWriter, request
 		return
 	}
 
-	// TODO: needs CSRF token as well
 	context := SigninConfirmationContext{
 		SigninToken: vars["token"],
 		CSRFToken:   csrfToken,
