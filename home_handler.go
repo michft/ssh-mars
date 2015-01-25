@@ -8,6 +8,7 @@ import (
 	"golang.org/x/crypto/ssh"
 	"html/template"
 	"net/http"
+	"path"
 	"time"
 )
 
@@ -26,6 +27,7 @@ type UserSession struct {
 type HomeHandler struct {
 	db         *sql.DB
 	domain     string
+	assetsDir  string
 	hostPubkey ssh.PublicKey
 }
 
@@ -46,7 +48,7 @@ type HomeContext struct {
 func (hd *HomeHandler) ServeHTTP(resp http.ResponseWriter, request *http.Request) {
 	db := hd.db
 
-	t, err := template.ParseFiles("public/index.html")
+	t, err := template.ParseFiles(path.Join(hd.assetsDir, "index.html"))
 	if err != nil {
 		fmt.Println("parsing HTML template:", err)
 		http.Error(resp, "Internal server error", http.StatusInternalServerError)

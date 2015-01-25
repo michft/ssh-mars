@@ -7,9 +7,13 @@ import (
 	"github.com/gorilla/mux"
 	"html/template"
 	"net/http"
+	"path"
 )
 
-type SigninConfirmationHandler HandlerWithDBConnection
+type SigninConfirmationHandler struct {
+	db        *sql.DB
+	assetsDir string
+}
 
 type SigninConfirmationContext struct {
 	SigninToken string
@@ -19,7 +23,7 @@ type SigninConfirmationContext struct {
 func (hd *SigninConfirmationHandler) ServeHTTP(resp http.ResponseWriter, request *http.Request) {
 	db := hd.db
 
-	t, err := template.ParseFiles("public/signin_confirmation.html")
+	t, err := template.ParseFiles(path.Join(hd.assetsDir, "signin_confirmation.html"))
 	if err != nil {
 		fmt.Println("parsing HTML template:", err)
 		http.Error(resp, "Internal server error", http.StatusInternalServerError)

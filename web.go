@@ -12,25 +12,25 @@ type HandlerWithDBConnection struct {
 	db *sql.DB
 }
 
-func startHTTPServer(bind string, domain string, hostPubkey ssh.PublicKey, db *sql.DB) {
+func startHTTPServer(bind, domain, assetsDir string, hostPubkey ssh.PublicKey, db *sql.DB) {
 	r := mux.NewRouter()
 
-	r.Handle("/signin/{token}", &SigninConfirmationHandler{db: db}).Methods("GET")
+	r.Handle("/signin/{token}", &SigninConfirmationHandler{db: db, assetsDir: assetsDir}).Methods("GET")
 	r.Handle("/signin/{token}", &SigninHandler{db: db}).Methods("POST")
 	r.Handle("/signout", &SignoutHandler{db: db}).Methods("POST")
 	r.Handle("/delete-account", &DeleteAccountHandler{db: db}).Methods("POST")
 
 	homePaths := []string{"/", "/signin", "/throwaway", "/fingerprint"}
 	for _, p := range homePaths {
-		r.Handle(p, &HomeHandler{db: db, hostPubkey: hostPubkey, domain: domain}).Methods("GET")
+		r.Handle(p, &HomeHandler{db: db, hostPubkey: hostPubkey, domain: domain, assetsDir: assetsDir}).Methods("GET")
 	}
 
 	r.Handle("/pins.csv", &PinsHandler{db: db}).Methods("GET")
 	r.Handle("/pin", &UpdatePinHandler{db: db}).Methods("POST")
 
-	r.HandleFunc("/how", HowHandler).Methods("GET")
+	r.Handle("/how", &HowHandler{assetsDir: assetsDir}).Methods("GET")
 
-	r.PathPrefix("/").Handler(http.FileServer(http.Dir("public")))
+	r.PathPrefix("/").Handler(http.FileServer(http.Dir(assetsDir)))
 
 	http.Handle("/", r)
 

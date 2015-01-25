@@ -15,10 +15,11 @@ import (
 )
 
 type Options struct {
-	Identity string `short:"i" long:"identity" description:"Private key to identify server with." default:"host_key"`
-	SSHBind  string `long:"ssh" description:"Host and port for SSH server to listen on." default:":2022"`
-	HTTPBind string `long:"http" description:"Host and port for HTTP server to listen on." default:":3000"`
-	Domain   string `long:"domain" description:"Domain where this server is publicly accessible." default:"localhost"`
+	Identity  string `short:"i" long:"identity" description:"Private key to identify server with." default:"host_key"`
+	SSHBind   string `long:"ssh" description:"Host and port for SSH server to listen on." default:":2022"`
+	HTTPBind  string `long:"http" description:"Host and port for HTTP server to listen on." default:":3000"`
+	Domain    string `long:"domain" description:"Domain where this server is publicly accessible." default:"localhost"`
+	AssetsDir string `long:"assets" description:"Directory containing the web assets." default:"assets"`
 }
 
 const (
@@ -61,7 +62,7 @@ func main() {
 	}
 
 	// TODO: handle errors binding to port
-	startHTTPServer(options.HTTPBind, options.Domain, hostPubkey, db)
+	startHTTPServer(options.HTTPBind, options.Domain, options.AssetsDir, hostPubkey, db)
 
 	sessionSweeper(db)
 
