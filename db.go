@@ -7,8 +7,8 @@ import (
 	"os"
 )
 
-func setupDB() (*sql.DB, error) {
-	db, err := sql.Open("sqlite3", "mars.sqlite")
+func setupDB(dbPath string) (*sql.DB, error) {
+	db, err := sql.Open("sqlite3", dbPath)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)

@@ -16,6 +16,7 @@ import (
 
 type Options struct {
 	Identity  string `short:"i" long:"identity" description:"Private key to identify server with." default:"host_key"`
+	Database  string `long:"db" description:"Path of the sqlite database used to store persistent data." default:"mars.sqlite"`
 	SSHBind   string `long:"ssh" description:"Host and port for SSH server to listen on." default:":2022"`
 	HTTPBind  string `long:"http" description:"Host and port for HTTP server to listen on." default:":3000"`
 	Domain    string `long:"domain" description:"Domain where this server is publicly accessible." default:"localhost"`
@@ -38,7 +39,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	db, err := setupDB()
+	db, err := setupDB(options.Database)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "setting up database:", err)
 		os.Exit(1)
