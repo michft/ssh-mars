@@ -15,14 +15,14 @@ import (
 )
 
 type Options struct {
-	SSHKey    string `long:"ssh-key" description:"Private key to identify server with." default:"host_key"`
-	TLSCert   string `long:"tls-cert" description:"TLS certificate file." default:"tls.crt"`
-	TLSKey    string `long:"tls-key" description:"TLS private key file." default:"tls.key"`
-	Database  string `long:"db" description:"SQLite database used to store persistent data." default:"mars.sqlite"`
-	SSHBind   string `long:"ssh" description:"Host and port for SSH server to listen on." default:":2022"`
-	HTTPBind  string `long:"http" description:"Host and port for HTTP server to listen on." default:":3000"`
-	Domain    string `long:"domain" description:"Domain where this server is publicly accessible." default:"localhost"`
-	AssetsDir string `long:"assets" description:"Directory containing the web assets." default:"assets"`
+	SSHKey     string `long:"ssh-key" description:"Private key to identify server with." default:"ssh-host-key"`
+	TLSCert    string `long:"tls-cert" description:"TLS certificate file." default:"tls-host-key.pub"`
+	TLSKey     string `long:"tls-key" description:"TLS private key file." default:"tls-host-key"`
+	Database   string `long:"db" description:"SQLite database used to store persistent data." default:"mars.sqlite"`
+	SSHListen  string `long:"ssh-listen" description:"Host and port for SSH server to listen on." default:":2022"`
+	HTTPListen string `long:"http-listen" description:"Host and port for HTTP server to listen on." default:":3000"`
+	Domain     string `long:"domain" description:"Domain where this server is publicly accessible." default:"localhost"`
+	AssetsDir  string `long:"assets" description:"Directory containing the web assets." default:"assets"`
 }
 
 const (
@@ -58,14 +58,14 @@ func main() {
 		return storeSigninRequest(db, pubkey, options.Domain)
 	}
 
-	err = startSSHServer(options.SSHBind, hostKey, generateSigninURL)
+	err = startSSHServer(options.SSHListen, hostKey, generateSigninURL)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "starting SSH server:", err)
 		os.Exit(1)
 	}
 
 	// TODO: handle errors binding to port
-	startHTTPServer(options.HTTPBind, options.TLSCert, options.TLSKey, options.Domain, options.AssetsDir, hostPubkey, db)
+	startHTTPServer(options.HTTPListen, options.TLSCert, options.TLSKey, options.Domain, options.AssetsDir, hostPubkey, db)
 
 	sessionSweeper(db)
 
