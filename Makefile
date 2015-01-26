@@ -39,4 +39,7 @@ deploy: package
 		"pacman --noconfirm --force -U /var/cache/pacman/pkg/$(pkg); \
 		systemctl restart $(proj).service;"
 
-.PHONY: build deps clean keygen run archive deploy
+pull:
+	rsync -e "ssh -p $(serviceport)" $(user)@$(host):/srv/$(proj)/mars.sqlite dist/
+
+.PHONY: build deps clean keygen run archive deploy pull
