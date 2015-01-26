@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"golang.org/x/crypto/ssh"
 	"html/template"
+	"net"
 	"net/http"
 	"path"
 	"time"
@@ -25,24 +26,26 @@ type UserSession struct {
 }
 
 type HomeHandler struct {
-	db         *sql.DB
-	domain     string
-	assetsDir  string
-	hostPubkey ssh.PublicKey
+	db           *sql.DB
+	sshAdvertise string
+	assetsDir    string
+	hostPubkey   ssh.PublicKey
 }
 
 type HomeContext struct {
-	IntroPage        bool
-	SigninPage       bool
-	ThrowawayPage    bool
-	FingerprintPage  bool
-	SignedIn         bool
-	UserId           int
-	Fingerprint      string
-	CSRFToken        string
-	Domain           string
-	HostFingerprint1 string
-	HostFingerprint2 string
+	IntroPage          bool
+	SigninPage         bool
+	ThrowawayPage      bool
+	FingerprintPage    bool
+	SignedIn           bool
+	UserId             int
+	Fingerprint        string
+	CSRFToken          string
+	SSHHost            string
+	SSHPort            string
+	SSHPortNonStandard bool
+	HostFingerprint1   string
+	HostFingerprint2   string
 }
 
 func (hd *HomeHandler) ServeHTTP(resp http.ResponseWriter, request *http.Request) {
@@ -83,19 +86,28 @@ func (hd *HomeHandler) ServeHTTP(resp http.ResponseWriter, request *http.Request
 		hostFingerprint2 = hostFingerprint[24:47]
 	}
 
+	sshHost, sshPort, err := net.SplitHostPort(hd.sshAdvertise)
+	if err != nil {
+		fmt.Println("splitting SSH host and port:", err)
+		http.Error(resp, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
 	path := request.URL.Path
 	context := HomeContext{
-		IntroPage:        path == "/" && !signedIn,
-		SigninPage:       path == "/signin",
-		ThrowawayPage:    path == "/throwaway",
-		FingerprintPage:  path == "/fingerprint",
-		SignedIn:         signedIn,
-		UserId:           session.userId,
-		Fingerprint:      fingerprint,
-		CSRFToken:        session.csrfToken,
-		Domain:           hd.domain,
-		HostFingerprint1: hostFingerprint1,
-		HostFingerprint2: hostFingerprint2,
+		IntroPage:          path == "/" && !signedIn,
+		SigninPage:         path == "/signin",
+		ThrowawayPage:      path == "/throwaway",
+		FingerprintPage:    path == "/fingerprint",
+		SignedIn:           signedIn,
+		UserId:             session.userId,
+		Fingerprint:        fingerprint,
+		CSRFToken:          session.csrfToken,
+		SSHHost:            sshHost,
+		SSHPort:            sshPort,
+		SSHPortNonStandard: sshPort != "22",
+		HostFingerprint1:   hostFingerprint1,
+		HostFingerprint2:   hostFingerprint2,
 	}
 
 	t.Execute(resp, context)

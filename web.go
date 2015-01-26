@@ -13,7 +13,7 @@ type HandlerWithDBConnection struct {
 	db *sql.DB
 }
 
-func startWebServer(bind, certFile, keyFile, domain, assetsDir string, logger *lumberjack.Logger, hostPubkey ssh.PublicKey, db *sql.DB) {
+func startWebServer(bind, certFile, keyFile, sshAdvertise, assetsDir string, logger *lumberjack.Logger, hostPubkey ssh.PublicKey, db *sql.DB) {
 	r := mux.NewRouter()
 
 	r.Handle("/signin/{token}", &SigninConfirmationHandler{db: db, assetsDir: assetsDir}).Methods("GET")
@@ -23,7 +23,7 @@ func startWebServer(bind, certFile, keyFile, domain, assetsDir string, logger *l
 
 	homePaths := []string{"/", "/signin", "/throwaway", "/fingerprint"}
 	for _, p := range homePaths {
-		r.Handle(p, &HomeHandler{db: db, hostPubkey: hostPubkey, domain: domain, assetsDir: assetsDir}).Methods("GET")
+		r.Handle(p, &HomeHandler{db: db, hostPubkey: hostPubkey, sshAdvertise: sshAdvertise, assetsDir: assetsDir}).Methods("GET")
 	}
 
 	r.Handle("/pins.csv", &PinsHandler{db: db}).Methods("GET")

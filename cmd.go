@@ -16,15 +16,16 @@ import (
 )
 
 type Options struct {
-	SSHKey     string `long:"ssh-key" description:"Private key to identify server with." default:"ssh-identity"`
-	TLSCert    string `long:"tls-cert" description:"TLS certificate file." default:"tls-identity.crt"`
-	TLSKey     string `long:"tls-key" description:"TLS private key file." default:"tls-identity.key"`
-	Database   string `long:"db" description:"SQLite database used to store persistent data." default:"mars.sqlite"`
-	SSHListen  string `long:"ssh-listen" description:"Host and port for SSH server to listen on." default:":2022"`
-	HTTPListen string `long:"http-listen" description:"Host and port for HTTP server to listen on." default:":3000"`
-	Domain     string `long:"domain" description:"Domain where this server is publicly accessible." default:"localhost"`
-	AssetsDir  string `long:"assets" description:"Directory containing the web assets." default:"assets"`
-	Log        string `long:"log" description:"Log file for HTTP requests." default:""`
+	SSHKey        string `long:"ssh-key" description:"Private key to identify server with." default:"ssh-identity"`
+	TLSCert       string `long:"tls-cert" description:"TLS certificate file." default:"tls-identity.crt"`
+	TLSKey        string `long:"tls-key" description:"TLS private key file." default:"tls-identity.key"`
+	Database      string `long:"db" description:"SQLite database used to store persistent data." default:"mars.sqlite"`
+	SSHListen     string `long:"ssh-listen" description:"Host and port for SSH server to listen on." default:":2022"`
+	SSHAdvertise  string `long:"ssh-advertise" description:"Host and port of SSH server as visible to users." default:"localhost:2022"`
+	HTTPListen    string `long:"http-listen" description:"Host and port for HTTP server to listen on." default:":3000"`
+	HTTPAdvertise string `long:"http-advertise" description:"Host and port of HTTP server as visible to users." default:"localhost:3000"`
+	AssetsDir     string `long:"assets" description:"Directory containing the web assets." default:"assets"`
+	Log           string `long:"log" description:"Log file for HTTP requests." default:""`
 }
 
 const (
@@ -68,7 +69,7 @@ func main() {
 	hostPubkey := hostKey.PublicKey()
 
 	generateSigninURL := func(pubkey []byte) (string, error) {
-		return storeSigninRequest(db, pubkey, options.Domain)
+		return storeSigninRequest(db, pubkey, options.HTTPAdvertise)
 	}
 
 	err = startSSHServer(options.SSHListen, hostKey, generateSigninURL)
@@ -78,7 +79,7 @@ func main() {
 	}
 
 	// TODO: handle errors binding to port
-	startWebServer(options.HTTPListen, options.TLSCert, options.TLSKey, options.Domain, options.AssetsDir, logger, hostPubkey, db)
+	startWebServer(options.HTTPListen, options.TLSCert, options.TLSKey, options.SSHAdvertise, options.AssetsDir, logger, hostPubkey, db)
 
 	sessionSweeper(db)
 
