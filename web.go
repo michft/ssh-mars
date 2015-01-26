@@ -7,6 +7,7 @@ import (
 	"golang.org/x/crypto/ssh"
 	"gopkg.in/natefinch/lumberjack.v2"
 	"net/http"
+	"time"
 )
 
 type HandlerWithDBConnection struct {
@@ -36,7 +37,8 @@ func startWebServer(bind, certFile, keyFile, sshAdvertise, assetsDir string, log
 	var handler http.Handler = r
 	if logger != nil {
 		handler = http.HandlerFunc(func(resp http.ResponseWriter, req *http.Request) {
-			fmt.Fprintf(logger, "%s %s %s\n", req.RemoteAddr, req.Method, req.URL)
+			timeStr := time.Now().UTC().Format("2006-01-02 15:04:05")
+			fmt.Fprintf(logger, "%s %s %s %s\n", timeStr, req.RemoteAddr, req.Method, req.URL)
 			r.ServeHTTP(resp, req)
 		})
 	}
