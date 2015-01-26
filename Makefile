@@ -19,10 +19,12 @@ clean:
 	rm $(binary)
 
 keygen:
+	mkdir -p $(rundir)
 	ssh-keygen -f $(sshkey) -P ''
 	openssl req -x509 -newkey rsa:2048 -nodes -subj /CN=localhost -days 365 -keyout $(tlskey).key -out $(tlskey).crt
 
 run: build
+	mkdir -p $(rundir)
 	./$(binary) --ssh-key $(sshkey) --tls-cert $(tlskey).crt --tls-key $(tlskey).key --db $(db)
 
 archive: build
