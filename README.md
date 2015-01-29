@@ -1,8 +1,9 @@
-# SSH into Mars
+# My Favorite Place on Mars
 
-An experiment using SSH to sign in to websites.
+An experiment using SSH to sign in to websites. [Explanatory blog
+post](https://vtllf.org/blog/ssh-web-sign-in).
 
-![](screenshot_cropped.png)
+[![](screenshot_cropped.png)](https://mars.vtllf.org/)
 
 
 ## How it works
@@ -26,20 +27,29 @@ their users' public keys (like GitHub and this demo both do), those
 accounts can be linked back to the same person.
 
 
-## Development
+## Developing
+
+    go get github.com/duncankl/ssh-mars
+    cd $GOPATH/src/github.com/duncankl/ssh-mars
+    make keygen
+    make run
+
+The server should be available at:
+[https://localhost:3000/](https://localhost:3000/). It uses a
+self-signed TLS certificate by default, so you'll have to add an
+exception to your browser.
 
 
 ## Security
 
 This demo is new, unreviewed and untested. Don't use it for anything
 that handles sensitive data. If you are interested, please do pull apart
-the code and report back vulnerabilities that you find, I'd be very
-grateful.
+the code and report back vulnerabilities, I'd be very grateful.
 
 
 ## Acknowledgements
 
-Thanks to [Andrey Petrov][http://shazow.net/] for showing how the Go ssh
+Thanks to [Andrey Petrov](http://shazow.net/) for showing how the Go ssh
 package can be (ab)used to make these kinds of experiments.
 
 
