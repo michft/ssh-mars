@@ -1,7 +1,8 @@
 # My Favorite Place on Mars
 
-An experiment using SSH to sign in to websites. [Explanatory blog
-post](https://vtllf.org/blog/ssh-web-sign-in).
+An experiment using SSH to sign in to websites.
+[Explanatory blog post](https://vtllf.org/blog/ssh-web-sign-in).
+[Live demo](https://mars.vtllf.org/).
 
 [![](screenshot_cropped.png)](https://mars.vtllf.org/)
 
